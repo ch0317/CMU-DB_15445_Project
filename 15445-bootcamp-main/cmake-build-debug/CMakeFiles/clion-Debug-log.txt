@@ -1,0 +1,15 @@
+/home/ch/.cache/JetBrains/RemoteDev/dist/5dc3f598cfaa5_CLion-243.21565.198/bin/cmake/linux/x64/bin/cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_MAKE_PROGRAM=/home/ch/.cache/JetBrains/RemoteDev/dist/5dc3f598cfaa5_CLion-243.21565.198/bin/ninja/linux/x64/ninja -G Ninja -S /home/ch/CMU-DB_15445_Project/15445-bootcamp-main -B /home/ch/CMU-DB_15445_Project/15445-bootcamp-main/cmake-build-debug
+-- The CXX compiler identification is GNU 11.4.0
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+CMake Warning at CMakeLists.txt:15 (message):
+  !! We recommend that you use clang-14 for this bootcamp.  You're using GNU
+  11.4.0, which is not clang.
+
+
+-- Configuring done (4.2s)
+-- Generating done (0.1s)
+-- Build files have been written to: /home/ch/CMU-DB_15445_Project/15445-bootcamp-main/cmake-build-debug

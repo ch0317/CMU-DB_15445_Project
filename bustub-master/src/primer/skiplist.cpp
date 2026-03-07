@@ -19,6 +19,8 @@
 #include <vector>
 #include "common/macros.h"
 #include "fmt/core.h"
+#include <shared_mutex>
+#include <mutex>
 
 namespace bustub {
 
@@ -71,12 +73,13 @@ SKIPLIST_TEMPLATE_ARGUMENTS void SkipList<K, Compare, MaxHeight, Seed>::Clear() 
  * @return true if the insertion is successful, false if the key already exists.
  */
 SKIPLIST_TEMPLATE_ARGUMENTS auto SkipList<K, Compare, MaxHeight, Seed>::Insert(const K &key) -> bool {
+  std::unique_lock<std::shared_mutex> lock(rwlock_);
   std::vector<std::shared_ptr<SkipNode>> update(MaxHeight);
 
   auto cur = header_;
   for (int i = static_cast<int>(height_) - 1; i >= static_cast<int>(LOWEST_LEVEL); i--) {
 
-    while (cur->Next(i) && compare_(cur->Next(i)->Key(), key) == 0) {
+    while (cur->Next(i) && compare_(cur->Next(i)->Key(), key)) {
       cur = cur->Next(i);
     }
 
@@ -84,7 +87,7 @@ SKIPLIST_TEMPLATE_ARGUMENTS auto SkipList<K, Compare, MaxHeight, Seed>::Insert(c
   }
 
   auto node = cur->Next(0);
-  if (node && compare_(node->Key(), key) == 0) {
+  if (node && !compare_(node->Key(), key) && !compare_(key, node->Key())) {
     return false;
   }
 
@@ -100,10 +103,11 @@ SKIPLIST_TEMPLATE_ARGUMENTS auto SkipList<K, Compare, MaxHeight, Seed>::Insert(c
   auto new_node = std::make_shared<SkipNode>(new_height, key);
 
   for (size_t i = 0; i < new_height; i++) {
-    new_node->SetNext(i, new_node->Next(i));
+    new_node->SetNext(i, update[i]->Next(i));
     update[i]->SetNext(i, new_node);
   }
 
+  size_++;
   return true;
 }
 
@@ -114,7 +118,31 @@ SKIPLIST_TEMPLATE_ARGUMENTS auto SkipList<K, Compare, MaxHeight, Seed>::Insert(c
  * @return bool true if the element got erased, false otherwise.
  */
 SKIPLIST_TEMPLATE_ARGUMENTS auto SkipList<K, Compare, MaxHeight, Seed>::Erase(const K &key) -> bool {
-  std::vector<std::shared_ptr<SkipNode>> erase_node(MaxHeight);
+  std::unique_lock<std::shared_mutex> lock(rwlock_);
+  std::vector<std::shared_ptr<SkipNode>> erase_nodes(MaxHeight);
+
+  auto cur = header_;
+  for (int i = static_cast<int>(height_ - 1); i >= static_cast<int>(LOWEST_LEVEL); i--) {
+    while (cur->Next(i) && compare_(cur->Next(i)->Key(), key)) {
+      cur = cur->Next(i);
+    }
+
+    erase_nodes[i] = cur;
+  }
+
+  if (cur->Next(0) && !compare_(cur->Next(0)->Key(), key) && !compare_(key,cur->Next(0)->Key())) {
+    for (int i = 0; i < static_cast<int>(MaxHeight); i++) {
+      if (erase_nodes[i]) {
+        auto temp = erase_nodes[i]->Next(i);
+        erase_nodes[i]->SetNext(i, erase_nodes[i]->Next(i)->Next(i));
+        temp->Next(i) = nullptr;
+        size_--;
+        return true;
+
+      }
+    }
+  }
+
   return false;
 }
 
@@ -127,15 +155,19 @@ SKIPLIST_TEMPLATE_ARGUMENTS auto SkipList<K, Compare, MaxHeight, Seed>::Erase(co
 SKIPLIST_TEMPLATE_ARGUMENTS auto SkipList<K, Compare, MaxHeight, Seed>::Contains(const K &key) -> bool {
   // Following the standard library: Key `a` and `b` are considered equivalent if neither compares less
   // than the other: `!compare_(a, b) && !compare_(b, a)`.
+  std::shared_lock<std::shared_mutex> lock(rwlock_);
+  auto cur = header_;
+  for (int i = static_cast<int>(height_ - 1); i >= static_cast<int>(LOWEST_LEVEL); i--) {
 
-  for (size_t i = height_ - 1; i >= LOWEST_LEVEL; i--) {
-    auto cur = header_->Next(i);
-    while (cur) {
-      if (cur && !compare_(cur->Key(), key) && !compare_(key, cur->Key())) {
-        return true;
-      }
+    while (cur->Next(i) && compare_(cur->Next(i)->Key(), key)) {
       cur = cur->Next(i);
     }
+  }
+
+  cur = cur->Next(0);
+
+  if (cur && !compare_(cur->Key(), key) && !compare_(key, cur->Key())) {
+    return true;
   }
 
   return false;

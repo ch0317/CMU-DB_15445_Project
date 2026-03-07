@@ -82,7 +82,7 @@ TEST(SkipListTest, IntegrityCheckTest) {
 
   // All the keys we will insert into the skip list (1 to 20).
   std::vector<int> keys = {12, 16, 2, 6, 15, 8, 13, 1, 11, 14, 0, 4, 19, 10, 9, 5, 7, 3, 17, 18};
-                       // {2,  1,  1, 1, 2,  1, 1,  1, 2,  1,  2, 1, 3,  1,  1, 2, 1, 1, 2,  3};
+  // {2,  1,  1, 1, 2,  1, 1,  1, 2,  1,  2, 1, 3,  1,  1, 2, 1, 1, 2,  3};
   // Heights of the nodes in the skip list.
   // These will not change since we fixed the seed of the random number generator.
   std::vector<uint32_t> heights = {2, 1, 1, 1, 2, 1, 1, 1, 2, 1, 2, 1, 3, 1, 1, 2, 1, 1, 2, 3};

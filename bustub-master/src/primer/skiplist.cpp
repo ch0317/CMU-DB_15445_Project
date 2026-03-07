@@ -15,24 +15,20 @@
 #include <cstddef>
 #include <functional>
 #include <memory>
+#include <mutex>
+#include <shared_mutex>
 #include <string>
 #include <vector>
 #include "common/macros.h"
 #include "fmt/core.h"
-#include <shared_mutex>
-#include <mutex>
 
 namespace bustub {
 
 /** @brief Checks whether the container is empty. */
-SKIPLIST_TEMPLATE_ARGUMENTS auto SkipList<K, Compare, MaxHeight, Seed>::Empty() -> bool {
-  return size_ == 0;
-}
+SKIPLIST_TEMPLATE_ARGUMENTS auto SkipList<K, Compare, MaxHeight, Seed>::Empty() -> bool { return size_ == 0; }
 
 /** @brief Returns the number of elements in the skip list. */
-SKIPLIST_TEMPLATE_ARGUMENTS auto SkipList<K, Compare, MaxHeight, Seed>::Size() -> size_t {
-  return size_;
-}
+SKIPLIST_TEMPLATE_ARGUMENTS auto SkipList<K, Compare, MaxHeight, Seed>::Size() -> size_t { return size_; }
 
 /**
  * @brief Iteratively deallocate all the nodes.
@@ -78,7 +74,6 @@ SKIPLIST_TEMPLATE_ARGUMENTS auto SkipList<K, Compare, MaxHeight, Seed>::Insert(c
 
   auto cur = header_;
   for (int i = static_cast<int>(height_) - 1; i >= static_cast<int>(LOWEST_LEVEL); i--) {
-
     while (cur->Next(i) && compare_(cur->Next(i)->Key(), key)) {
       cur = cur->Next(i);
     }
@@ -130,7 +125,7 @@ SKIPLIST_TEMPLATE_ARGUMENTS auto SkipList<K, Compare, MaxHeight, Seed>::Erase(co
     erase_nodes[i] = cur;
   }
 
-  if (cur->Next(0) && !compare_(cur->Next(0)->Key(), key) && !compare_(key,cur->Next(0)->Key())) {
+  if (cur->Next(0) && !compare_(cur->Next(0)->Key(), key) && !compare_(key, cur->Next(0)->Key())) {
     for (int i = 0; i < static_cast<int>(MaxHeight); i++) {
       if (erase_nodes[i]) {
         auto temp = erase_nodes[i]->Next(i);
@@ -138,7 +133,6 @@ SKIPLIST_TEMPLATE_ARGUMENTS auto SkipList<K, Compare, MaxHeight, Seed>::Erase(co
         temp->Next(i) = nullptr;
         size_--;
         return true;
-
       }
     }
   }
@@ -158,7 +152,6 @@ SKIPLIST_TEMPLATE_ARGUMENTS auto SkipList<K, Compare, MaxHeight, Seed>::Contains
   std::shared_lock<std::shared_mutex> lock(rwlock_);
   auto cur = header_;
   for (int i = static_cast<int>(height_ - 1); i >= static_cast<int>(LOWEST_LEVEL); i--) {
-
     while (cur->Next(i) && compare_(cur->Next(i)->Key(), key)) {
       cur = cur->Next(i);
     }
@@ -230,8 +223,7 @@ SKIPLIST_TEMPLATE_ARGUMENTS auto SkipList<K, Compare, MaxHeight, Seed>::SkipNode
  */
 SKIPLIST_TEMPLATE_ARGUMENTS void SkipList<K, Compare, MaxHeight, Seed>::SkipNode::SetNext(
     size_t level, const std::shared_ptr<SkipNode> &node) {
-  if (level < links_.size())
-    links_[level] = node;
+  if (level < links_.size()) links_[level] = node;
 }
 
 /** @brief Returns a reference to the key stored in the node. */

@@ -14,9 +14,9 @@
 
 #include <cstdint>
 #include <functional>
+#include <mutex>
 #include <utility>
 #include <vector>
-#include <mutex>
 #include "common/util/hash_util.h"
 
 namespace bustub {

@@ -42,11 +42,11 @@ CountMinSketch<KeyType>::CountMinSketch(uint32_t width, uint32_t depth) : width_
 }
 
 template <typename KeyType>
-CountMinSketch<KeyType>::CountMinSketch(CountMinSketch &&other) noexcept :
-  width_(other.width_),
-  depth_(other.depth_),
-  hash_functions_(std::move(other.hash_functions_)),
-  matrix_(std::move(other.matrix_)){}
+CountMinSketch<KeyType>::CountMinSketch(CountMinSketch &&other) noexcept
+    : width_(other.width_),
+      depth_(other.depth_),
+      hash_functions_(std::move(other.hash_functions_)),
+      matrix_(std::move(other.matrix_)) {}
 
 template <typename KeyType>
 auto CountMinSketch<KeyType>::operator=(CountMinSketch &&other) noexcept -> CountMinSketch & {
@@ -108,10 +108,7 @@ auto CountMinSketch<KeyType>::TopK(uint16_t k, const std::vector<KeyType> &candi
     result.emplace_back(item, Count(item));
   }
 
-  std::sort(result.begin(), result.end(),
-            [](const auto &a, const auto &b) {
-              return a.second > b.second;
-            });
+  std::sort(result.begin(), result.end(), [](const auto &a, const auto &b) { return a.second > b.second; });
 
   if (k < result.size()) {
     result.resize(k);

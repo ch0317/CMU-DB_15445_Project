@@ -16,7 +16,7 @@
 #include <functional>
 #include <utility>
 #include <vector>
-
+#include <mutex>
 #include "common/util/hash_util.h"
 
 namespace bustub {
@@ -103,6 +103,8 @@ class CountMinSketch {
   }
 
   /** @todo (student) can add their data structures that support count-min sketch operations */
+  std::vector<std::vector<uint32_t>> matrix_;
+  std::mutex mtx_;
 };
 
 }  // namespace bustub

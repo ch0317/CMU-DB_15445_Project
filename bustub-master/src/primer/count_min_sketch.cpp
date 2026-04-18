@@ -26,8 +26,13 @@ namespace bustub {
  */
 template <typename KeyType>
 CountMinSketch<KeyType>::CountMinSketch(uint32_t width, uint32_t depth) : width_(width), depth_(depth) {
-  /** @TODO(student) Implement this function! */
-
+  matrix_.resize(depth);
+  if (width == 0 || depth == 0) {
+    throw std::invalid_argument("Invalid width.");
+  }
+  for (size_t i = 0; i < depth_; i++) {
+    matrix_[i].resize(width);
+  }
   /** @spring2026 PLEASE DO NOT MODIFY THE FOLLOWING */
   // Initialize seeded hash functions
   hash_functions_.reserve(depth_);
@@ -37,19 +42,29 @@ CountMinSketch<KeyType>::CountMinSketch(uint32_t width, uint32_t depth) : width_
 }
 
 template <typename KeyType>
-CountMinSketch<KeyType>::CountMinSketch(CountMinSketch &&other) noexcept : width_(other.width_), depth_(other.depth_) {
-  /** @TODO(student) Implement this function! */
-}
+CountMinSketch<KeyType>::CountMinSketch(CountMinSketch &&other) noexcept :
+  width_(other.width_),
+  depth_(other.depth_),
+  hash_functions_(std::move(other.hash_functions_)),
+  matrix_(std::move(other.matrix_)){}
 
 template <typename KeyType>
 auto CountMinSketch<KeyType>::operator=(CountMinSketch &&other) noexcept -> CountMinSketch & {
-  /** @TODO(student) Implement this function! */
+  if (this != &other) {
+    width_ = other.width_;
+    depth_ = other.depth_;
+    hash_functions_ = std::move(other.hash_functions_);
+    matrix_ = std::move(other.matrix_);
+  }
   return *this;
 }
 
 template <typename KeyType>
 void CountMinSketch<KeyType>::Insert(const KeyType &item) {
-  /** @TODO(student) Implement this function! */
+  std::lock_guard<std::mutex> lock(mtx_);
+  for (size_t i = 0; i < depth_; i++) {
+    matrix_[i][hash_functions_[i](item)] += 1;
+  }
 }
 
 template <typename KeyType>
@@ -57,24 +72,52 @@ void CountMinSketch<KeyType>::Merge(const CountMinSketch<KeyType> &other) {
   if (width_ != other.width_ || depth_ != other.depth_) {
     throw std::invalid_argument("Incompatible CountMinSketch dimensions for merge.");
   }
-  /** @TODO(student) Implement this function! */
+  std::lock_guard<std::mutex> lock(mtx_);
+  for (size_t i = 0; i < depth_; i++) {
+    for (size_t j = 0; j < width_; j++) {
+      matrix_[i][j] += other.matrix_[i][j];
+    }
+  }
 }
 
 template <typename KeyType>
 auto CountMinSketch<KeyType>::Count(const KeyType &item) const -> uint32_t {
-  return 0;
+  uint32_t result = std::numeric_limits<uint32_t>::max();
+  for (size_t i = 0; i < depth_; i++) {
+    auto idx = hash_functions_[i](item);
+    result = std::min(result, matrix_[i][idx]);
+  }
+  return result;
 }
 
 template <typename KeyType>
 void CountMinSketch<KeyType>::Clear() {
-  /** @TODO(student) Implement this function! */
+  std::lock_guard<std::mutex> lock(mtx_);
+  for (size_t i = 0; i < depth_; i++) {
+    std::fill(matrix_[i].begin(), matrix_[i].end(), 0);
+  }
 }
 
 template <typename KeyType>
 auto CountMinSketch<KeyType>::TopK(uint16_t k, const std::vector<KeyType> &candidates)
     -> std::vector<std::pair<KeyType, uint32_t>> {
-  /** @TODO(student) Implement this function! */
-  return {};
+  std::vector<std::pair<KeyType, uint32_t>> result;
+  result.reserve(candidates.size());
+
+  for (const auto &item : candidates) {
+    result.emplace_back(item, Count(item));
+  }
+
+  std::sort(result.begin(), result.end(),
+            [](const auto &a, const auto &b) {
+              return a.second > b.second;
+            });
+
+  if (k < result.size()) {
+    result.resize(k);
+  }
+
+  return result;
 }
 
 // Explicit instantiations for all types used in tests

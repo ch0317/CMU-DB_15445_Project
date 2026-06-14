@@ -170,6 +170,7 @@ class BufferPoolManager {
    * We would recommend implementing a helper function that returns the ID of a frame that is free and has nothing
    * stored inside of it. Additionally, you may also want to implement a helper function that returns either a shared
    * pointer to a `FrameHeader` that already has a page's data stored inside of it, or an index to said `FrameHeader`.
-   */
+   * */
+  std::unordered_map<frame_id_t, page_id_t> frame_to_page_;
 };
 }  // namespace bustub

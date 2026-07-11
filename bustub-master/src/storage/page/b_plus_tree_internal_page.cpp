@@ -31,7 +31,11 @@ namespace bustub {
  * @param max_size Maximal size of the page
  */
 INDEX_TEMPLATE_ARGUMENTS
-void B_PLUS_TREE_INTERNAL_PAGE_TYPE::Init(int max_size) { UNIMPLEMENTED("TODO(P2): Add implementation."); }
+void B_PLUS_TREE_INTERNAL_PAGE_TYPE::Init(int max_size) {
+  SetPageType(IndexPageType::INTERNAL_PAGE);
+  SetSize(0);
+  SetMaxSize(max_size);
+}
 
 /**
  * @brief Helper method to get/set the key associated with input "index"(a.k.a
@@ -42,7 +46,7 @@ void B_PLUS_TREE_INTERNAL_PAGE_TYPE::Init(int max_size) { UNIMPLEMENTED("TODO(P2
  */
 INDEX_TEMPLATE_ARGUMENTS
 auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::KeyAt(int index) const -> KeyType {
-  UNIMPLEMENTED("TODO(P2): Add implementation.");
+  return key_array_[index];
 }
 
 /**
@@ -53,7 +57,7 @@ auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::KeyAt(int index) const -> KeyType {
  */
 INDEX_TEMPLATE_ARGUMENTS
 void B_PLUS_TREE_INTERNAL_PAGE_TYPE::SetKeyAt(int index, const KeyType &key) {
-  UNIMPLEMENTED("TODO(P2): Add implementation.");
+  key_array_[index] = key;
 }
 
 /**
@@ -65,7 +69,33 @@ void B_PLUS_TREE_INTERNAL_PAGE_TYPE::SetKeyAt(int index, const KeyType &key) {
  */
 INDEX_TEMPLATE_ARGUMENTS
 auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::ValueAt(int index) const -> ValueType {
-  UNIMPLEMENTED("TODO(P2): Add implementation.");
+  return page_id_array_[index];
+}
+
+INDEX_TEMPLATE_ARGUMENTS
+void B_PLUS_TREE_INTERNAL_PAGE_TYPE::InsertAt(int index, const KeyType &key, const ValueType &value) {
+  int size = GetSize();
+  for (int i = size; i > index; i--) {
+    key_array_[i] = key_array_[i - 1];
+    page_id_array_[i] = page_id_array_[i - 1];
+  }
+  key_array_[index] = key;
+  page_id_array_[index] = value;
+  ChangeSizeBy(1);
+}
+
+INDEX_TEMPLATE_ARGUMENTS
+void B_PLUS_TREE_INTERNAL_PAGE_TYPE::Split(BPlusTreeInternalPage *new_node) {
+  int size = GetSize();
+  int split_point = size / 2;
+  int right_size = size - split_point;
+  for (int i = 0; i < right_size; i++) {
+    new_node->key_array_[i] = key_array_[split_point + 1];
+    new_node->page_id_array_[i] = page_id_array_[split_point + 1];
+  }
+
+  SetSize(split_point);
+  new_node->SetSize(right_size);
 }
 
 // valuetype for internalNode should be page id_t

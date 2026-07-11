@@ -88,6 +88,7 @@ class BPlusTree {
   // Insert a key-value pair into this B+ tree.
   auto Insert(const KeyType &key, const ValueType &value) -> bool;
 
+  void InsertIntoParent(Context &ctx, WritePageGuard &child_guard, const KeyType &up_key, page_id_t new_pid);
   // Remove a key and its value from this B+ tree.
   void Remove(const KeyType &key);
 

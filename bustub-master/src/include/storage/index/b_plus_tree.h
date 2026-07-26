@@ -128,7 +128,10 @@ class BPlusTree {
   void PrintTree(page_id_t page_id, const BPlusTreePage *page);
 
   auto ToPrintableBPlusTree(page_id_t root_id) -> PrintableBPlusTree;
-
+  void UpdateAncestorMinKey(
+      Context &ctx,
+      page_id_t child_page_id,
+      const KeyType &key);
   // member variable
   std::string index_name_;
   KeyComparator comparator_;

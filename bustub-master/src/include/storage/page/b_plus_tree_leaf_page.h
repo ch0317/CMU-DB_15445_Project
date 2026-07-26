@@ -68,7 +68,6 @@ class BPlusTreeLeafPage : public BPlusTreePage {
   void Init(int max_size = LEAF_PAGE_SLOT_CNT);
 
   auto GetTombstones() const -> std::vector<KeyType>;
-
   // Helper methods
   auto GetNextPageId() const -> page_id_t;
   void SetNextPageId(page_id_t next_page_id);
@@ -76,6 +75,15 @@ class BPlusTreeLeafPage : public BPlusTreePage {
   void InsertAt(int index, const KeyType &key, const ValueType &value);
   void Split(BPlusTreeLeafPage * new_leaf);
   void RemoveAt(int index);
+  auto IsTombstone(int index) const -> bool;
+  auto ValueAt(int index) const -> ValueType;
+  auto Remove(const KeyType &key, const KeyComparator &comparator)->bool;
+  auto GetLiveSize() const -> int;
+  void MoveLastToFrontOf(BPlusTreeLeafPage *recipient);
+
+  void MoveFirstToEndOf(BPlusTreeLeafPage *recipient);
+
+  void MoveAllTo(BPlusTreeLeafPage *recipient);
   /**
    * @brief for test only return a string representing all keys in
    * this leaf page formatted as "(tombkey1, tombkey2, ...|key1,key2,key3,...)"

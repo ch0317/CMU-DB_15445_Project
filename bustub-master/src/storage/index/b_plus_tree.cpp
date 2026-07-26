@@ -212,14 +212,109 @@ FULL_INDEX_TEMPLATE_ARGUMENTS
 void BPLUSTREE_TYPE::InsertIntoParent(Context &ctx,
   WritePageGuard &child_guard, const KeyType &up_key,
   page_id_t new_pid) {
+  /*
+   * 这个函数处理：
+   *
+   * 一个 child 节点 split 之后：
+   *
+   * 原来：
+   *
+   *             parent
+   *                |
+   *                |
+   *              child
+   *
+   *
+   * split 后：
+   *
+   *             parent
+   *                |
+   *          +-----+------+
+   *          |            |
+   *       child        new_child
+   *
+   *
+   * 需要把 new_child 的信息插入 parent。
+   *
+   * 如果 parent 也满了：
+   *     parent 继续 split
+   *     再递归调用 InsertIntoParent()
+   */
   // 情况1：当前child 是根（write_set_为空) 创建新根
+  /*
+   * 这个函数处理：
+   *
+   * 一个 child 节点 split 之后：
+   *
+   * 原来：
+   *
+   *             parent
+   *                |
+   *                |
+   *              child
+   *
+   *
+   * split 后：
+   *
+   *             parent
+   *                |
+   *          +-----+------+
+   *          |            |
+   *       child        new_child
+   *
+   *
+   * 需要把 new_child 的信息插入 parent。
+   *
+   * 如果 parent 也满了：
+   *     parent 继续 split
+   *     再递归调用 InsertIntoParent()
+   */
   if (ctx.write_set_.empty()) {
     page_id_t new_root_pid = bpm_->NewPage();
     WritePageGuard root_guard = bpm_->WritePage(new_root_pid);
     auto *new_root = root_guard.AsMut<InternalPage>();
     new_root->Init(internal_max_size_);
-    new_root->SetSize();
-    new_root->SetKeyAt(0, child_guard.GetPageId());
+    /*
+     * InternalPage 的 size 表示 child 数量。
+     *
+     * 新 root 有两个孩子：
+     *
+     *
+     *              root
+     *
+     *          /          \
+     *
+     *       child       new_child
+     *
+     */
+    new_root->SetSize(2);
+    /*
+     * InternalPage 的特殊布局：
+     *
+     * key[0] 无意义
+     *
+     * 例如：
+     *
+     * key:
+     *
+     *   [ invalid | 30 ]
+     *
+     *
+     * value:
+     *
+     *   [ child1 | child2 ]
+     *
+     *
+     * key[1] 保存分隔 key。
+     */
+    new_root->SetKeyAt(1, up_key);
+    /*
+     * 左孩子：
+     *
+     * split 前的旧节点
+     */
+    new_root->SetValueAt(0,child_guard.GetPageId());
+    //right
     new_root->SetValueAt(1, new_pid);
 
     auto *header = ctx.header_page_->AsMut<BPlusTreeHeaderPage>();
@@ -539,6 +634,57 @@ void BPLUSTREE_TYPE::Remove(const KeyType &key) {
 
   for (page_id_t page_id : pages_to_delete) {
     bpm_->DeletePage(page_id);
+  }
+}
+
+FULL_INDEX_TEMPLATE_ARGUMENTS
+void BPLUSTREE_TYPE::UpdateAncestorMinKey(
+    Context &ctx,
+    page_id_t child_page_id,
+    const KeyType &key) {
+
+
+  while (!ctx.write_set_.empty()) {
+
+
+    auto parent_guard =
+        std::move(ctx.write_set_.back());
+
+    ctx.write_set_.pop_back();
+
+
+    auto *parent =
+        parent_guard.AsMut<InternalPage>();
+
+
+    int index =
+        parent->ValueIndex(child_page_id);
+
+
+    /*
+     * child 不是最左孩子
+     *
+     * 它对应 parent 中一个 separator key
+     *
+     * 直接更新
+     */
+    if (index > 0) {
+
+      parent->SetKeyAt(index, key);
+
+      return;
+    }
+
+
+    /*
+     * child 是最左孩子
+     *
+     * parent 没有 key 可以描述它
+     *
+     * 继续向上找
+     */
+    child_page_id =
+        parent_guard.GetPageId();
   }
 }
 

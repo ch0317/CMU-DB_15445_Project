@@ -119,6 +119,13 @@ class BPlusTree {
 
   void BatchOpsFromFile(const std::filesystem::path &file_name);
 
+  auto TryOptimisticInsert(const KeyType &key,
+                         const ValueType &value) -> bool;
+
+
+  auto FindLeafPageOptimistic(
+      const KeyType &key,
+      std::vector<ReadPageGuard> &guards) -> page_id_t;
   // Do not change this type to a BufferPoolManager!
   std::shared_ptr<TracedBufferPoolManager> bpm_;
 

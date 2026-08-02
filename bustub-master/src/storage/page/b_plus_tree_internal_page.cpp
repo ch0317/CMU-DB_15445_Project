@@ -108,62 +108,75 @@ void B_PLUS_TREE_INTERNAL_PAGE_TYPE::InsertAt(int index, const KeyType &key, con
 }
 
 INDEX_TEMPLATE_ARGUMENTS
-void B_PLUS_TREE_INTERNAL_PAGE_TYPE::Split(
-    BPlusTreeInternalPage *new_node) {
+auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::Split(
+    BPlusTreeInternalPage *new_node) -> KeyType {
 
 
   int size = GetSize();
 
-
-  int split_point = size / 2;
+  int mid = size / 2;
 
 
   /*
-   * 中间 key 提升
+   * 这个key提升给parent
    */
-  new_node->key_array_[0] =
-      key_array_[split_point];
-
-
-  int new_size = 1;
+  KeyType middle_key = key_array_[mid];
 
 
   /*
-   * 搬右半 key
+   * 右节点第一个child
    *
    * 注意：
-   * 从 split_point + 1 开始
+   *
+   * separator右边的child也要过去
    */
-  for (int i = split_point + 1; i < size; i++) {
+  new_node->page_id_array_[0] =
+      page_id_array_[mid];
 
 
-    new_node->key_array_[new_size] =
+  int new_index = 1;
+
+
+  /*
+   * 搬右边的key和child
+   *
+   * key[mid+1...]
+   * value[mid+1...]
+   */
+  for (int i = mid + 1; i < size; i++) {
+
+    new_node->key_array_[new_index] =
         key_array_[i];
 
 
-    new_node->page_id_array_[new_size] =
+    new_node->page_id_array_[new_index] =
         page_id_array_[i];
 
 
-    new_size++;
+    new_index++;
   }
 
 
-  /*
-   * 最后一个 child
-   */
-  new_node->page_id_array_[new_size - 1] =
-      page_id_array_[size - 1];
-
-
-  new_node->SetSize(new_size);
+  new_node->SetSize(new_index);
 
 
 
   /*
-   * 左边保留
+   * 左边保留:
+   *
+   * key:
+   *
+   * [invalid, ...]
+   *
+   * value:
+   *
+   * [...]
+   *
    */
-  SetSize(split_point + 1);
+  SetSize(mid + 1);
+
+
+  return middle_key;
 }
 
 INDEX_TEMPLATE_ARGUMENTS

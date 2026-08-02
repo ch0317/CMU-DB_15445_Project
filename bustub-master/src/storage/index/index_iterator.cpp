@@ -24,21 +24,60 @@ namespace bustub {
  * set your own input parameters
  */
 FULL_INDEX_TEMPLATE_ARGUMENTS
-INDEXITERATOR_TYPE::IndexIterator() = default;
+INDEXITERATOR_TYPE::IndexIterator(page_id_t page_id, int index, std::shared_ptr<TracedBufferPoolManager> bpm)
+: page_id_(page_id), index_(index), bpm_(std::move(bpm)) {
+  if (page_id_ != INVALID_PAGE_ID) {
+    read_page_guard_ = bpm_->ReadPage(page_id);
+  }
+}
 
 FULL_INDEX_TEMPLATE_ARGUMENTS
 INDEXITERATOR_TYPE::~IndexIterator() = default;  // NOLINT
 
 FULL_INDEX_TEMPLATE_ARGUMENTS
-auto INDEXITERATOR_TYPE::IsEnd() -> bool { UNIMPLEMENTED("TODO(P2): Add implementation."); }
+auto INDEXITERATOR_TYPE::IsEnd() -> bool { return page_id_ == INVALID_PAGE_ID; }
 
 FULL_INDEX_TEMPLATE_ARGUMENTS
 auto INDEXITERATOR_TYPE::operator*() -> std::pair<const KeyType &, const ValueType &> {
-  UNIMPLEMENTED("TODO(P2): Add implementation.");
+  auto leaf = read_page_guard_->As<BPlusTreeLeafPage<KeyType, ValueType, KeyComparator, NumTombs>>();
+
+  return {
+    leaf->KeyAt(index_),
+    leaf->ValueAt(index_)
+  };
+
 }
 
 FULL_INDEX_TEMPLATE_ARGUMENTS
-auto INDEXITERATOR_TYPE::operator++() -> INDEXITERATOR_TYPE & { UNIMPLEMENTED("TODO(P2): Add implementation."); }
+auto INDEXITERATOR_TYPE::operator++() -> INDEXITERATOR_TYPE & {
+  auto leaf = read_page_guard_->As<BPlusTreeLeafPage<KeyType, ValueType, KeyComparator, NumTombs>>();
+  index_++;
+
+  while (true) {
+    if (index_ < leaf->GetSize()) {
+      if (!leaf->IsTombstone(index_)) {
+        return *this;
+      }
+
+      index_++;
+      continue;
+
+    }
+
+    page_id_t next_page_id = leaf->GetNextPageId();
+
+    if (next_page_id == INVALID_PAGE_ID) {
+      page_id_ = INVALID_PAGE_ID;
+      read_page_guard_.reset();
+      return *this;
+    }
+
+    page_id_ = next_page_id;
+    index_ = 0;
+    read_page_guard_ = bpm_->ReadPage(next_page_id);
+    leaf = read_page_guard_->As<BPlusTreeLeafPage<KeyType, ValueType, KeyComparator, NumTombs>>();
+  }
+}
 
 template class IndexIterator<GenericKey<4>, RID, GenericComparator<4>>;
 

@@ -65,7 +65,7 @@ class BPlusTreeInternalPage : public BPlusTreePage {
   auto ValueAt(int index) const -> ValueType;
 
   void InsertAt(int index, const KeyType &key, const ValueType &value);
-  void Split(BPlusTreeInternalPage *new_node);
+  auto Split(BPlusTreeInternalPage *new_node) -> KeyType;
   auto Lookup(const KeyType &key, const KeyComparator &comparator) const -> ValueType;
   void RemoveAt(int index);
   auto MoveLastToFrontOf(

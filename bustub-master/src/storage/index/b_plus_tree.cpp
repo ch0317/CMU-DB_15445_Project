@@ -882,14 +882,11 @@ auto BPLUSTREE_TYPE::Begin()
     );
   }
 
-
   auto guard =
       bpm_->ReadPage(page_id);
 
-
   auto *page =
       guard.template As<BPlusTreePage>();
-
 
   // 找最左leaf
   while(!page->IsLeafPage())
@@ -897,26 +894,20 @@ auto BPLUSTREE_TYPE::Begin()
     auto *internal =
         guard.template As<InternalPage>();
 
-
     page_id =
         internal->ValueAt(0);
 
-
     guard =
         bpm_->ReadPage(page_id);
-
 
     page =
         guard.template As<BPlusTreePage>();
   }
 
-
   auto *leaf =
       guard.template As<LeafPage>();
 
-
   int index = 0;
-
 
   while(index < leaf->GetSize()
         &&
@@ -925,13 +916,11 @@ auto BPLUSTREE_TYPE::Begin()
     index++;
   }
 
-
   // 当前leaf全部删除
   while(index >= leaf->GetSize())
   {
     page_id =
         leaf->GetNextPageId();
-
 
     if(page_id == INVALID_PAGE_ID)
     {
@@ -941,10 +930,8 @@ auto BPLUSTREE_TYPE::Begin()
           bpm_);
     }
 
-
     guard =
         bpm_->ReadPage(page_id);
-
 
     leaf =
         guard.template As<LeafPage>();
@@ -959,7 +946,6 @@ auto BPLUSTREE_TYPE::Begin()
       index++;
     }
   }
-
 
   return INDEXITERATOR_TYPE(
       page_id,
@@ -977,14 +963,11 @@ auto BPLUSTREE_TYPE::Begin(
     const KeyType &key)
     -> INDEXITERATOR_TYPE {
 
-
   auto header_guard =
       bpm_->ReadPage(header_page_id_);
 
-
   auto *header =
       header_guard.template As<BPlusTreeHeaderPage>();
-
 
   page_id_t page_id =
       header->root_page_id_;
@@ -998,14 +981,11 @@ auto BPLUSTREE_TYPE::Begin(
         bpm_);
   }
 
-
   auto guard =
       bpm_->ReadPage(page_id);
 
-
   auto *page =
       guard.template As<BPlusTreePage>();
-
 
   // 找目标leaf
   while(!page->IsLeafPage())
@@ -1017,10 +997,8 @@ auto BPLUSTREE_TYPE::Begin(
     int size =
         internal->GetSize();
 
-
     int lo=1;
     int hi=size;
-
 
     while(lo<hi)
     {
@@ -1039,40 +1017,31 @@ auto BPLUSTREE_TYPE::Begin(
       }
     }
 
-
     page_id =
         internal->ValueAt(lo-1);
 
-
     guard =
         bpm_->ReadPage(page_id);
-
 
     page =
         guard.template As<BPlusTreePage>();
   }
 
-
   auto *leaf =
       guard.template As<LeafPage>();
 
-
   int index=0;
-
 
   // leaf 内二分
   int size =
       leaf->GetSize();
 
-
   int lo=0;
   int hi=size;
-
 
   while(lo<hi)
   {
     int mid=(lo+hi)/2;
-
 
     if(comparator_(
         leaf->KeyAt(mid),
@@ -1086,9 +1055,7 @@ auto BPLUSTREE_TYPE::Begin(
     }
   }
 
-
   index=lo;
-
 
   // 跳过 tombstone
   while(true)
@@ -1109,10 +1076,8 @@ auto BPLUSTREE_TYPE::Begin(
           bpm_);
     }
 
-
     page_id =
         leaf->GetNextPageId();
-
 
     if(page_id == INVALID_PAGE_ID)
     {
@@ -1122,14 +1087,11 @@ auto BPLUSTREE_TYPE::Begin(
           bpm_);
     }
 
-
     guard =
         bpm_->ReadPage(page_id);
 
-
     leaf =
         guard.template As<LeafPage>();
-
 
     index=0;
   }

@@ -40,7 +40,8 @@ auto INDEXITERATOR_TYPE::IsEnd() -> bool { return page_id_ == INVALID_PAGE_ID; }
 FULL_INDEX_TEMPLATE_ARGUMENTS
 auto INDEXITERATOR_TYPE::operator*() -> std::pair<const KeyType &, const ValueType &> {
   auto leaf = read_page_guard_->As<BPlusTreeLeafPage<KeyType, ValueType, KeyComparator, NumTombs>>();
-
+  assert(page_id_ != INVALID_PAGE_ID);
+  assert(read_page_guard_.has_value());
   return {
     leaf->KeyAt(index_),
     leaf->ValueAt(index_)
@@ -69,6 +70,7 @@ auto INDEXITERATOR_TYPE::operator++() -> INDEXITERATOR_TYPE & {
     if (next_page_id == INVALID_PAGE_ID) {
       page_id_ = INVALID_PAGE_ID;
       read_page_guard_.reset();
+      index_ = 0;
       return *this;
     }
 

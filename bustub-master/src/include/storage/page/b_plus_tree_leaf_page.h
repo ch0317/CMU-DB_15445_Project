@@ -71,12 +71,12 @@ class BPlusTreeLeafPage : public BPlusTreePage {
   // Helper methods
   auto GetNextPageId() const -> page_id_t;
   void SetNextPageId(page_id_t next_page_id);
-  auto KeyAt(int index) const -> KeyType;
+  auto KeyAt(int index) const -> const KeyType &;
   void InsertAt(int index, const KeyType &key, const ValueType &value);
   void Split(BPlusTreeLeafPage * new_leaf);
   void RemoveAt(int index);
   auto IsTombstone(int index) const -> bool;
-  auto ValueAt(int index) const -> ValueType;
+  auto ValueAt(int index) const -> const ValueType &;
   auto Remove(const KeyType &key, const KeyComparator &comparator)->bool;
   auto GetLiveSize() const -> int;
   void MoveLastToFrontOf(BPlusTreeLeafPage *recipient);

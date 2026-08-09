@@ -111,17 +111,14 @@ INDEX_TEMPLATE_ARGUMENTS
 auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::Split(
     BPlusTreeInternalPage *new_node) -> KeyType {
 
-
   int size = GetSize();
 
   int mid = size / 2;
-
 
   /*
    * 这个key提升给parent
    */
   KeyType middle_key = key_array_[mid];
-
 
   /*
    * 右节点第一个child
@@ -133,9 +130,7 @@ auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::Split(
   new_node->page_id_array_[0] =
       page_id_array_[mid];
 
-
   int new_index = 1;
-
 
   /*
    * 搬右边的key和child
@@ -148,17 +143,13 @@ auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::Split(
     new_node->key_array_[new_index] =
         key_array_[i];
 
-
     new_node->page_id_array_[new_index] =
         page_id_array_[i];
-
 
     new_index++;
   }
 
-
   new_node->SetSize(new_index);
-
 
 
   /*
@@ -174,7 +165,6 @@ auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::Split(
    *
    */
   SetSize(mid + 1);
-
 
   return middle_key;
 }
@@ -204,7 +194,6 @@ auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::Lookup(const KeyType &key, const KeyCompara
 
   int result = 0;
 
-
   while (left <= right) {
 
     int mid = (left + right) / 2;
@@ -224,26 +213,21 @@ auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::Lookup(const KeyType &key, const KeyCompara
     }
   }
 
-
   return ValueAt(result);
 }
 INDEX_TEMPLATE_ARGUMENTS
 void B_PLUS_TREE_INTERNAL_PAGE_TYPE::RemoveAt(
     int index) {
 
-
   int size = GetSize();
-
 
   for (int i = index; i < size - 1; i++) {
 
     key_array_[i] =
         key_array_[i + 1];
-
     page_id_array_[i] =
         page_id_array_[i + 1];
   }
-
 
   ChangeSizeBy(-1);
 }
@@ -253,9 +237,7 @@ auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::MoveLastToFrontOf(
     BPlusTreeInternalPage *recipient,
     const KeyType &middle_key) -> KeyType {
 
-
   int size = recipient->GetSize();
-
 
   // recipient整体右移
   for (int i = size; i > 0; i--) {
@@ -267,20 +249,16 @@ auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::MoveLastToFrontOf(
         recipient->page_id_array_[i - 1];
   }
 
-
   // 原separator进入recipient
   recipient->key_array_[1] =
       middle_key;
 
-
   recipient->page_id_array_[0] =
       page_id_array_[GetSize() - 1];
-
 
   recipient->ChangeSizeBy(1);
 
   ChangeSizeBy(-1);
-
 
   // 被借走的key成为新的parent key
   return key_array_[GetSize()];
@@ -291,24 +269,18 @@ auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::MoveFirstToEndOf(
     BPlusTreeInternalPage *recipient,
     const KeyType &middle_key) -> KeyType {
 
-
   int size = recipient->GetSize();
-
 
   recipient->key_array_[size] =
       middle_key;
 
-
   recipient->page_id_array_[size] =
       page_id_array_[0];
 
-
   recipient->ChangeSizeBy(1);
-
 
   KeyType new_key =
       key_array_[1];
-
 
   for(int i=1;i<GetSize()-1;i++){
 
@@ -317,9 +289,7 @@ auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::MoveFirstToEndOf(
     page_id_array_[i]=page_id_array_[i+1];
   }
 
-
   ChangeSizeBy(-1);
-
 
   return new_key;
 }
@@ -329,14 +299,11 @@ void B_PLUS_TREE_INTERNAL_PAGE_TYPE::MoveAllTo(
     BPlusTreeInternalPage *recipient,
     const KeyType &middle_key) {
 
-
   int recipient_size =
       recipient->GetSize();
 
-
   int current_size =
       GetSize();
-
 
   /*
    * middle_key 放到 left 最后一个 key
@@ -344,34 +311,26 @@ void B_PLUS_TREE_INTERNAL_PAGE_TYPE::MoveAllTo(
   recipient->key_array_[recipient_size] =
       middle_key;
 
-
   recipient->page_id_array_[recipient_size] =
       page_id_array_[0];
 
-
   recipient_size++;
-
 
   /*
    * 搬 key/value
    */
   for (int i = 1; i < current_size; i++) {
 
-
     recipient->key_array_[recipient_size] =
         key_array_[i];
-
 
     recipient->page_id_array_[recipient_size] =
         page_id_array_[i];
 
-
     recipient_size++;
   }
 
-
   recipient->SetSize(recipient_size);
-
 
   SetSize(0);
 }

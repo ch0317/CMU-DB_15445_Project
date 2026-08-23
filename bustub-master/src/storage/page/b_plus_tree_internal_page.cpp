@@ -45,9 +45,7 @@ void B_PLUS_TREE_INTERNAL_PAGE_TYPE::Init(int max_size) {
  * @return Key at index
  */
 INDEX_TEMPLATE_ARGUMENTS
-auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::KeyAt(int index) const -> KeyType {
-  return key_array_[index];
-}
+auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::KeyAt(int index) const -> KeyType { return key_array_[index]; }
 
 /**
  * @brief Set key at the specified index.
@@ -56,28 +54,17 @@ auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::KeyAt(int index) const -> KeyType {
  * @param key The new value for key
  */
 INDEX_TEMPLATE_ARGUMENTS
-void B_PLUS_TREE_INTERNAL_PAGE_TYPE::SetKeyAt(int index, const KeyType &key) {
-  key_array_[index] = key;
-}
+void B_PLUS_TREE_INTERNAL_PAGE_TYPE::SetKeyAt(int index, const KeyType &key) { key_array_[index] = key; }
 
 INDEX_TEMPLATE_ARGUMENTS
-void B_PLUS_TREE_INTERNAL_PAGE_TYPE::SetValueAt(
-    int index,
-    const ValueType &value) {
-
-  page_id_array_[index] = value;
-}
+void B_PLUS_TREE_INTERNAL_PAGE_TYPE::SetValueAt(int index, const ValueType &value) { page_id_array_[index] = value; }
 
 INDEX_TEMPLATE_ARGUMENTS
-auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::ValueIndex(
-    const ValueType &value) const -> int {
-
+auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::ValueIndex(const ValueType &value) const -> int {
   for (int i = 0; i < GetSize(); i++) {
-
     if (page_id_array_[i] == value) {
       return i;
     }
-
   }
 
   return -1;
@@ -91,9 +78,7 @@ auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::ValueIndex(
  * @return Value at index
  */
 INDEX_TEMPLATE_ARGUMENTS
-auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::ValueAt(int index) const -> ValueType {
-  return page_id_array_[index];
-}
+auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::ValueAt(int index) const -> ValueType { return page_id_array_[index]; }
 
 INDEX_TEMPLATE_ARGUMENTS
 void B_PLUS_TREE_INTERNAL_PAGE_TYPE::InsertAt(int index, const KeyType &key, const ValueType &value) {
@@ -108,9 +93,7 @@ void B_PLUS_TREE_INTERNAL_PAGE_TYPE::InsertAt(int index, const KeyType &key, con
 }
 
 INDEX_TEMPLATE_ARGUMENTS
-auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::Split(
-    BPlusTreeInternalPage *new_node) -> KeyType {
-
+auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::Split(BPlusTreeInternalPage *new_node) -> KeyType {
   int size = GetSize();
 
   int mid = size / 2;
@@ -127,8 +110,7 @@ auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::Split(
    *
    * separator右边的child也要过去
    */
-  new_node->page_id_array_[0] =
-      page_id_array_[mid];
+  new_node->page_id_array_[0] = page_id_array_[mid];
 
   int new_index = 1;
 
@@ -139,18 +121,14 @@ auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::Split(
    * value[mid+1...]
    */
   for (int i = mid + 1; i < size; i++) {
+    new_node->key_array_[new_index] = key_array_[i];
 
-    new_node->key_array_[new_index] =
-        key_array_[i];
-
-    new_node->page_id_array_[new_index] =
-        page_id_array_[i];
+    new_node->page_id_array_[new_index] = page_id_array_[i];
 
     new_index++;
   }
 
   new_node->SetSize(new_index);
-
 
   /*
    * 左边保留:
@@ -164,7 +142,7 @@ auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::Split(
    * [...]
    *
    */
-  SetSize(mid + 1);
+  SetSize(mid);
 
   return middle_key;
 }
@@ -195,12 +173,9 @@ auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::Lookup(const KeyType &key, const KeyCompara
   int result = 0;
 
   while (left <= right) {
-
     int mid = (left + right) / 2;
 
-
     if (comparator(KeyAt(mid), key) <= 0) {
-
       // mid 的 key <= target
       // 当前 child 可能是答案
       result = mid;
@@ -208,7 +183,6 @@ auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::Lookup(const KeyType &key, const KeyCompara
       left = mid + 1;
 
     } else {
-
       right = mid - 1;
     }
   }
@@ -216,45 +190,33 @@ auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::Lookup(const KeyType &key, const KeyCompara
   return ValueAt(result);
 }
 INDEX_TEMPLATE_ARGUMENTS
-void B_PLUS_TREE_INTERNAL_PAGE_TYPE::RemoveAt(
-    int index) {
-
+void B_PLUS_TREE_INTERNAL_PAGE_TYPE::RemoveAt(int index) {
   int size = GetSize();
 
   for (int i = index; i < size - 1; i++) {
-
-    key_array_[i] =
-        key_array_[i + 1];
-    page_id_array_[i] =
-        page_id_array_[i + 1];
+    key_array_[i] = key_array_[i + 1];
+    page_id_array_[i] = page_id_array_[i + 1];
   }
 
   ChangeSizeBy(-1);
 }
 
 INDEX_TEMPLATE_ARGUMENTS
-auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::MoveLastToFrontOf(
-    BPlusTreeInternalPage *recipient,
-    const KeyType &middle_key) -> KeyType {
-
+auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::MoveLastToFrontOf(BPlusTreeInternalPage *recipient, const KeyType &middle_key)
+    -> KeyType {
   int size = recipient->GetSize();
 
   // recipient整体右移
   for (int i = size; i > 0; i--) {
+    recipient->key_array_[i] = recipient->key_array_[i - 1];
 
-    recipient->key_array_[i] =
-        recipient->key_array_[i - 1];
-
-    recipient->page_id_array_[i] =
-        recipient->page_id_array_[i - 1];
+    recipient->page_id_array_[i] = recipient->page_id_array_[i - 1];
   }
 
   // 原separator进入recipient
-  recipient->key_array_[1] =
-      middle_key;
+  recipient->key_array_[1] = middle_key;
 
-  recipient->page_id_array_[0] =
-      page_id_array_[GetSize() - 1];
+  recipient->page_id_array_[0] = page_id_array_[GetSize() - 1];
 
   recipient->ChangeSizeBy(1);
 
@@ -265,28 +227,22 @@ auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::MoveLastToFrontOf(
 }
 
 INDEX_TEMPLATE_ARGUMENTS
-auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::MoveFirstToEndOf(
-    BPlusTreeInternalPage *recipient,
-    const KeyType &middle_key) -> KeyType {
-
+auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::MoveFirstToEndOf(BPlusTreeInternalPage *recipient, const KeyType &middle_key)
+    -> KeyType {
   int size = recipient->GetSize();
 
-  recipient->key_array_[size] =
-      middle_key;
+  recipient->key_array_[size] = middle_key;
 
-  recipient->page_id_array_[size] =
-      page_id_array_[0];
+  recipient->page_id_array_[size] = page_id_array_[0];
 
   recipient->ChangeSizeBy(1);
 
-  KeyType new_key =
-      key_array_[1];
+  KeyType new_key = key_array_[1];
 
-  for(int i=1;i<GetSize()-1;i++){
+  for (int i = 1; i < GetSize() - 1; i++) {
+    key_array_[i] = key_array_[i + 1];
 
-    key_array_[i]=key_array_[i+1];
-
-    page_id_array_[i]=page_id_array_[i+1];
+    page_id_array_[i] = page_id_array_[i + 1];
   }
 
   ChangeSizeBy(-1);
@@ -295,24 +251,17 @@ auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::MoveFirstToEndOf(
 }
 
 INDEX_TEMPLATE_ARGUMENTS
-void B_PLUS_TREE_INTERNAL_PAGE_TYPE::MoveAllTo(
-    BPlusTreeInternalPage *recipient,
-    const KeyType &middle_key) {
+void B_PLUS_TREE_INTERNAL_PAGE_TYPE::MoveAllTo(BPlusTreeInternalPage *recipient, const KeyType &middle_key) {
+  int recipient_size = recipient->GetSize();
 
-  int recipient_size =
-      recipient->GetSize();
-
-  int current_size =
-      GetSize();
+  int current_size = GetSize();
 
   /*
    * middle_key 放到 left 最后一个 key
    */
-  recipient->key_array_[recipient_size] =
-      middle_key;
+  recipient->key_array_[recipient_size] = middle_key;
 
-  recipient->page_id_array_[recipient_size] =
-      page_id_array_[0];
+  recipient->page_id_array_[recipient_size] = page_id_array_[0];
 
   recipient_size++;
 
@@ -320,12 +269,9 @@ void B_PLUS_TREE_INTERNAL_PAGE_TYPE::MoveAllTo(
    * 搬 key/value
    */
   for (int i = 1; i < current_size; i++) {
+    recipient->key_array_[recipient_size] = key_array_[i];
 
-    recipient->key_array_[recipient_size] =
-        key_array_[i];
-
-    recipient->page_id_array_[recipient_size] =
-        page_id_array_[i];
+    recipient->page_id_array_[recipient_size] = page_id_array_[i];
 
     recipient_size++;
   }

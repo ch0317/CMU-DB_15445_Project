@@ -119,13 +119,11 @@ class BPlusTree {
 
   void BatchOpsFromFile(const std::filesystem::path &file_name);
 
-  auto TryOptimisticInsert(const KeyType &key,
-                         const ValueType &value) -> bool;
+  auto TryOptimisticInsert(const KeyType &key, const ValueType &value) -> bool;
 
+  auto TryOptimisticRemove(const KeyType &key) -> bool;
 
-  auto FindLeafPageOptimistic(
-      const KeyType &key,
-      std::vector<ReadPageGuard> &guards) -> page_id_t;
+  auto FindLeafPageOptimistic(const KeyType &key, std::vector<ReadPageGuard> &guards) -> page_id_t;
   // Do not change this type to a BufferPoolManager!
   std::shared_ptr<TracedBufferPoolManager> bpm_;
 
@@ -135,10 +133,7 @@ class BPlusTree {
   void PrintTree(page_id_t page_id, const BPlusTreePage *page);
 
   auto ToPrintableBPlusTree(page_id_t root_id) -> PrintableBPlusTree;
-  void UpdateAncestorMinKey(
-      Context &ctx,
-      page_id_t child_page_id,
-      const KeyType &key);
+  void UpdateAncestorMinKey(Context &ctx, page_id_t child_page_id, const KeyType &key);
   // member variable
   std::string index_name_;
   KeyComparator comparator_;

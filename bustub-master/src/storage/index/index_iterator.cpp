@@ -25,7 +25,7 @@ namespace bustub {
  */
 FULL_INDEX_TEMPLATE_ARGUMENTS
 INDEXITERATOR_TYPE::IndexIterator(page_id_t page_id, int index, std::shared_ptr<TracedBufferPoolManager> bpm)
-: page_id_(page_id), index_(index), bpm_(std::move(bpm)) {
+    : page_id_(page_id), index_(index), bpm_(std::move(bpm)) {
   if (page_id_ != INVALID_PAGE_ID) {
     read_page_guard_ = bpm_->ReadPage(page_id);
   }
@@ -42,11 +42,7 @@ auto INDEXITERATOR_TYPE::operator*() -> std::pair<const KeyType &, const ValueTy
   auto leaf = read_page_guard_->As<BPlusTreeLeafPage<KeyType, ValueType, KeyComparator, NumTombs>>();
   assert(page_id_ != INVALID_PAGE_ID);
   assert(read_page_guard_.has_value());
-  return {
-    leaf->KeyAt(index_),
-    leaf->ValueAt(index_)
-  };
-
+  return {leaf->KeyAt(index_), leaf->ValueAt(index_)};
 }
 
 FULL_INDEX_TEMPLATE_ARGUMENTS
@@ -62,7 +58,6 @@ auto INDEXITERATOR_TYPE::operator++() -> INDEXITERATOR_TYPE & {
 
       index_++;
       continue;
-
     }
 
     page_id_t next_page_id = leaf->GetNextPageId();

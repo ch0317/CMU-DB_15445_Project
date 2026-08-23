@@ -62,9 +62,7 @@ FULL_INDEX_TEMPLATE_ARGUMENTS
 auto B_PLUS_TREE_LEAF_PAGE_TYPE::GetNextPageId() const -> page_id_t { return next_page_id_; }
 
 FULL_INDEX_TEMPLATE_ARGUMENTS
-void B_PLUS_TREE_LEAF_PAGE_TYPE::SetNextPageId(page_id_t next_page_id) {
-  next_page_id_ = next_page_id;
-}
+void B_PLUS_TREE_LEAF_PAGE_TYPE::SetNextPageId(page_id_t next_page_id) { next_page_id_ = next_page_id; }
 
 /*
  * Helper method to find and return the key associated with input "index" (a.k.a
@@ -105,7 +103,7 @@ void B_PLUS_TREE_LEAF_PAGE_TYPE::Split(BPlusTreeLeafPage *new_leaf) {
   for (size_t i = 0; i < num_tombstones_; i++) {
     if (tombstones_[i] >= static_cast<size_t>(split_point)) {
       new_leaf->tombstones_[new_num++] = tombstones_[i] - split_point;
-    }else {
+    } else {
       tombstones_[old_num++] = tombstones_[i];
     }
   }
@@ -146,59 +144,38 @@ void B_PLUS_TREE_LEAF_PAGE_TYPE::RemoveAt(int index) {
 }
 
 FULL_INDEX_TEMPLATE_ARGUMENTS
-auto B_PLUS_TREE_LEAF_PAGE_TYPE::IsTombstone(
-    int index) const -> bool {
-
-
+auto B_PLUS_TREE_LEAF_PAGE_TYPE::IsTombstone(int index) const -> bool {
   for (size_t i = 0; i < num_tombstones_; i++) {
-
-
     if (tombstones_[i] == static_cast<size_t>(index)) {
       return true;
     }
-
-
   }
-
 
   return false;
 }
 
 FULL_INDEX_TEMPLATE_ARGUMENTS
-auto B_PLUS_TREE_LEAF_PAGE_TYPE::ValueAt(
-    int index) const -> const ValueType & {
-
-  return rid_array_[index];
-}
+auto B_PLUS_TREE_LEAF_PAGE_TYPE::ValueAt(int index) const -> const ValueType & { return rid_array_[index]; }
 
 FULL_INDEX_TEMPLATE_ARGUMENTS
-auto B_PLUS_TREE_LEAF_PAGE_TYPE::Remove(
-    const KeyType &key,
-    const KeyComparator &comparator) -> bool {
-
-
+auto B_PLUS_TREE_LEAF_PAGE_TYPE::Remove(const KeyType &key, const KeyComparator &comparator) -> bool {
   for (int i = 0; i < GetSize(); i++) {
-
-
     // 找到目标 key
     if (comparator(key_array_[i], key) == 0) {
-
-
       // 已经删除
       if (IsTombstone(i)) {
         return false;
       }
 
-
       /*
-       * tombstone buffer 已满
+       * tombstone buffer 已满（或无 tombstone 支持）
        *
-       * 不能继续记录
+       * 回退到物理删除
        */
       if (num_tombstones_ >= LEAF_PAGE_TOMB_CNT) {
-        return false;
+        RemoveAt(i);
+        return true;
       }
-
 
       /*
        * 记录删除位置
@@ -211,102 +188,67 @@ auto B_PLUS_TREE_LEAF_PAGE_TYPE::Remove(
        */
       tombstones_[num_tombstones_++] = i;
 
-
       return true;
     }
   }
-
 
   return false;
 }
 
 FULL_INDEX_TEMPLATE_ARGUMENTS
-auto B_PLUS_TREE_LEAF_PAGE_TYPE::GetLiveSize() const -> int {
-
-  return GetSize() - num_tombstones_;
-}
+auto B_PLUS_TREE_LEAF_PAGE_TYPE::GetLiveSize() const -> int { return GetSize() - num_tombstones_; }
 
 FULL_INDEX_TEMPLATE_ARGUMENTS
-void B_PLUS_TREE_LEAF_PAGE_TYPE::MoveLastToFrontOf(
-    BPlusTreeLeafPage *recipient) {
-
+void B_PLUS_TREE_LEAF_PAGE_TYPE::MoveLastToFrontOf(BPlusTreeLeafPage *recipient) {
   int recipient_size = recipient->GetSize();
 
   // recipient 全部右移
   for (int i = recipient_size; i > 0; i--) {
-    recipient->key_array_[i] =
-        recipient->key_array_[i - 1];
+    recipient->key_array_[i] = recipient->key_array_[i - 1];
 
-    recipient->rid_array_[i] =
-        recipient->rid_array_[i - 1];
+    recipient->rid_array_[i] = recipient->rid_array_[i - 1];
   }
 
-
   // 当前最后一个放到 recipient 第一个
-  recipient->key_array_[0] =
-      key_array_[GetSize() - 1];
+  recipient->key_array_[0] = key_array_[GetSize() - 1];
 
-  recipient->rid_array_[0] =
-      rid_array_[GetSize() - 1];
-
+  recipient->rid_array_[0] = rid_array_[GetSize() - 1];
 
   recipient->ChangeSizeBy(1);
   ChangeSizeBy(-1);
 }
 
 FULL_INDEX_TEMPLATE_ARGUMENTS
-void B_PLUS_TREE_LEAF_PAGE_TYPE::MoveFirstToEndOf(
-    BPlusTreeLeafPage *recipient) {
-
-
+void B_PLUS_TREE_LEAF_PAGE_TYPE::MoveFirstToEndOf(BPlusTreeLeafPage *recipient) {
   int size = recipient->GetSize();
 
+  recipient->key_array_[size] = key_array_[0];
 
-  recipient->key_array_[size] =
-      key_array_[0];
-
-  recipient->rid_array_[size] =
-      rid_array_[0];
-
+  recipient->rid_array_[size] = rid_array_[0];
 
   recipient->ChangeSizeBy(1);
-
 
   // 当前节点左移
   for (int i = 0; i < GetSize() - 1; i++) {
+    key_array_[i] = key_array_[i + 1];
 
-    key_array_[i] =
-        key_array_[i + 1];
-
-    rid_array_[i] =
-        rid_array_[i + 1];
+    rid_array_[i] = rid_array_[i + 1];
   }
-
 
   ChangeSizeBy(-1);
 }
 
 FULL_INDEX_TEMPLATE_ARGUMENTS
-void B_PLUS_TREE_LEAF_PAGE_TYPE::MoveAllTo(
-    BPlusTreeLeafPage *recipient) {
-
-
+void B_PLUS_TREE_LEAF_PAGE_TYPE::MoveAllTo(BPlusTreeLeafPage *recipient) {
   int recipient_size = recipient->GetSize();
 
-
   for (int i = 0; i < GetSize(); i++) {
+    recipient->key_array_[recipient_size + i] = key_array_[i];
 
-    recipient->key_array_[recipient_size + i] =
-        key_array_[i];
-
-    recipient->rid_array_[recipient_size + i] =
-        rid_array_[i];
-
+    recipient->rid_array_[recipient_size + i] = rid_array_[i];
   }
 
-
   recipient->ChangeSizeBy(GetSize());
-
 
   recipient->next_page_id_ = next_page_id_;
 

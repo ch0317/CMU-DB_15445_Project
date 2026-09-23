@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 #include <memory>
+#include "common/config.h"
 #include "common/macros.h"
 
 #include "execution/executors/aggregation_executor.h"
@@ -25,12 +26,33 @@ namespace bustub {
  */
 AggregationExecutor::AggregationExecutor(ExecutorContext *exec_ctx, const AggregationPlanNode *plan,
                                          std::unique_ptr<AbstractExecutor> &&child_executor)
-    : AbstractExecutor(exec_ctx) {
-  UNIMPLEMENTED("TODO(P3): Add implementation.");
-}
+    : AbstractExecutor(exec_ctx),
+      plan_(plan),
+      child_executor_(std::move(child_executor)),
+      aht_(plan_->GetAggregates(), plan_->GetAggregateTypes()),
+      aht_iterator_(aht_.Begin()) {}
 
 /** Initialize the aggregation */
-void AggregationExecutor::Init() { UNIMPLEMENTED("TODO(P3): Add implementation."); }
+void AggregationExecutor::Init() {
+  child_executor_->Init();
+  aht_.Clear();
+
+  std::vector<Tuple> child_tuples;
+  std::vector<RID> child_rids;
+  while (child_executor_->Next(&child_tuples, &child_rids, BUSTUB_BATCH_SIZE)) {
+    for (auto &tuple : child_tuples) {
+      aht_.InsertCombine(MakeAggregateKey(&tuple), MakeAggregateValue(&tuple));
+    }
+  }
+
+  // With no GROUP BY, an aggregation over an empty input must still emit one row
+  // (e.g. COUNT(*) = 0, other aggregates = NULL).
+  if (aht_.Begin() == aht_.End() && plan_->GetGroupBys().empty()) {
+    aht_.InsertInitial(AggregateKey{});
+  }
+
+  aht_iterator_ = aht_.Begin();
+}
 
 /**
  * Yield the next tuple batch from the aggregation.
@@ -42,7 +64,24 @@ void AggregationExecutor::Init() { UNIMPLEMENTED("TODO(P3): Add implementation."
 
 auto AggregationExecutor::Next(std::vector<bustub::Tuple> *tuple_batch, std::vector<bustub::RID> *rid_batch,
                                size_t batch_size) -> bool {
-  UNIMPLEMENTED("TODO(P3): Add implementation.");
+  tuple_batch->clear();
+  rid_batch->clear();
+
+  while (aht_iterator_ != aht_.End() && tuple_batch->size() < batch_size) {
+    std::vector<Value> values;
+    values.reserve(GetOutputSchema().GetColumnCount());
+    for (const auto &group_by_val : aht_iterator_.Key().group_bys_) {
+      values.push_back(group_by_val);
+    }
+    for (const auto &agg_val : aht_iterator_.Val().aggregates_) {
+      values.push_back(agg_val);
+    }
+    tuple_batch->emplace_back(values, &GetOutputSchema());
+    rid_batch->emplace_back(RID{});
+    ++aht_iterator_;
+  }
+
+  return !tuple_batch->empty();
 }
 
 /** Do not use or remove this function; otherwise, you will get zero points. */

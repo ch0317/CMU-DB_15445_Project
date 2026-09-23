@@ -104,7 +104,13 @@ struct AggregateKey {
    */
   auto operator==(const AggregateKey &other) const -> bool {
     for (uint32_t i = 0; i < other.group_bys_.size(); i++) {
-      if (group_bys_[i].CompareEquals(other.group_bys_[i]) != CmpBool::CmpTrue) {
+      const auto &lhs = group_bys_[i];
+      const auto &rhs = other.group_bys_[i];
+      // NULL group-by values should be treated as equal to each other (unlike SQL NULL semantics).
+      if (lhs.IsNull() != rhs.IsNull()) {
+        return false;
+      }
+      if (!lhs.IsNull() && lhs.CompareEquals(rhs) != CmpBool::CmpTrue) {
         return false;
       }
     }

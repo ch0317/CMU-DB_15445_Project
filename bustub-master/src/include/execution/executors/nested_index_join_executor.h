@@ -15,9 +15,11 @@
 #include <memory>
 #include <vector>
 
+#include "catalog/catalog.h"
 #include "execution/executor_context.h"
 #include "execution/executors/abstract_executor.h"
 #include "execution/plans/nested_index_join_plan.h"
+#include "storage/index/b_plus_tree_index.h"
 #include "storage/table/tuple.h"
 
 namespace bustub {
@@ -41,5 +43,19 @@ class NestedIndexJoinExecutor : public AbstractExecutor {
  private:
   /** The nested index join plan node. */
   const NestedIndexJoinPlanNode *plan_;
+
+  std::unique_ptr<AbstractExecutor> child_executor_;
+
+  const TableInfo *table_info_;
+  const IndexInfo *index_info_;
+  BPlusTreeIndexForTwoIntegerColumn *tree_;
+
+  /** The current batch pulled from the outer (child) side, and our position within it. */
+  std::vector<Tuple> outer_tuples_;
+  std::vector<RID> outer_rids_;
+  size_t outer_idx_{0};
+
+  /** Builds an output tuple from an outer tuple and an optional inner tuple (nullptr for LEFT join padding). */
+  auto BuildJoinTuple(const Tuple &outer_tuple, const Tuple *inner_tuple) -> Tuple;
 };
 }  // namespace bustub

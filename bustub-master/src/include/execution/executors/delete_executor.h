@@ -44,10 +44,13 @@ class DeleteExecutor : public AbstractExecutor {
   /** The delete plan node to be executed */
   const DeletePlanNode *plan_;
 
+  /** Metadata identifying the table that should be deleted from */
+  const TableInfo *table_info_;
+
   /** The child executor from which RIDs for deleted tuples are pulled */
   std::unique_ptr<AbstractExecutor> child_executor_;
 
-  // HINT: you'll also need `const TableInfo *table_info_` (from the catalog) and a
-  // `bool done_{false}` flag so Next() only emits its output row once.
+  /** Whether the single output row has already been emitted */
+  bool done_{false};
 };
 }  // namespace bustub

@@ -40,8 +40,6 @@ class SeqScanExecutor : public AbstractExecutor {
   /** The sequential scan plan node to be executed */
   const SeqScanPlanNode *plan_;
   std::optional<TableIterator> iterator_;
-  // HINT: Next() reads `table_info_->schema_` to evaluate `filter_predicate_`, but this class
-  // has no such member yet. Look up the table via `exec_ctx_->GetCatalog()->GetTable(...)` in
-  // Init() and store the result (a `const TableInfo *`) here.
+  const TableInfo *table_info_;
 };
 }  // namespace bustub

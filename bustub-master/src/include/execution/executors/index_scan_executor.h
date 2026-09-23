@@ -12,12 +12,15 @@
 
 #pragma once
 
+#include <memory>
 #include <vector>
 
+#include "catalog/catalog.h"
 #include "common/rid.h"
 #include "execution/executor_context.h"
 #include "execution/executors/abstract_executor.h"
 #include "execution/plans/index_scan_plan.h"
+#include "storage/index/b_plus_tree_index.h"
 #include "storage/table/tuple.h"
 
 namespace bustub {
@@ -41,12 +44,15 @@ class IndexScanExecutor : public AbstractExecutor {
   /** The index scan plan node to be executed. */
   const IndexScanPlanNode *plan_;
 
-  // HINT: you'll need at least:
-  //  - `const TableInfo *table_info_` and `const IndexInfo *index_info_` (from the catalog)
-  //  - `BPlusTreeIndexForTwoIntegerColumn *tree_` (dynamic_cast of `index_info_->index_.get()`)
-  //  - state for point lookup (e.g. `std::vector<RID> lookup_rids_` + a cursor) OR for ordered scan
-  //    (e.g. `std::unique_ptr<BPlusTreeIndexIteratorForTwoIntegerColumn> iterator_`), depending on
-  //    whether `plan_->pred_keys_` is populated.
-  // See b_plus_tree_index.h and index_iterator.h for the exact types.
+  const TableInfo *table_info_;
+  const IndexInfo *index_info_;
+  BPlusTreeIndexForTwoIntegerColumn *tree_;
+
+  /** Point lookup results, used when `plan_->pred_keys_` is not empty. */
+  std::vector<RID> lookup_rids_;
+  size_t lookup_cursor_{0};
+
+  /** Ordered scan iterator, used when `plan_->pred_keys_` is empty. */
+  std::unique_ptr<BPlusTreeIndexIteratorForTwoIntegerColumn> iterator_;
 };
 }  // namespace bustub

@@ -103,6 +103,8 @@ struct AggregateKey {
    * @return `true` if both aggregate keys have equivalent group-by expressions, `false` otherwise
    */
   auto operator==(const AggregateKey &other) const -> bool {
+    // HINT: NULL group-by values should compare equal to each other here (unlike normal SQL NULL
+    // semantics where NULL != NULL). Check `Value::IsNull()` before calling `CompareEquals`.
     for (uint32_t i = 0; i < other.group_bys_.size(); i++) {
       if (group_bys_[i].CompareEquals(other.group_bys_[i]) != CmpBool::CmpTrue) {
         return false;

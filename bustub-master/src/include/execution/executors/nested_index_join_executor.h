@@ -41,5 +41,15 @@ class NestedIndexJoinExecutor : public AbstractExecutor {
  private:
   /** The nested index join plan node. */
   const NestedIndexJoinPlanNode *plan_;
+
+  // HINT: you'll need `child_executor_` (the outer table), plus:
+  //  - `const TableInfo *table_info_` and `const IndexInfo *index_info_`, looked up from the
+  //    catalog via `plan_->GetInnerTableOid()` / `plan_->GetIndexOid()`
+  //  - the concrete index type, e.g. `BPlusTreeIndexForTwoIntegerColumn *tree_ =
+  //    dynamic_cast<BPlusTreeIndexForTwoIntegerColumn *>(index_info_->index_.get())` (see
+  //    b_plus_tree_index.h)
+  //  - batching state for the outer child (buffered tuples + cursor), similar to other executors
+  // A `BuildJoinTuple(outer_tuple, inner_tuple_or_nullptr)` helper (outer columns, then
+  // `plan_->InnerTableSchema()` columns, NULL-padded for a LEFT join non-match) will help.
 };
 }  // namespace bustub

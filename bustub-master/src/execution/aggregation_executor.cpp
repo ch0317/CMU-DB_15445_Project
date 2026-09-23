@@ -26,11 +26,20 @@ namespace bustub {
 AggregationExecutor::AggregationExecutor(ExecutorContext *exec_ctx, const AggregationPlanNode *plan,
                                          std::unique_ptr<AbstractExecutor> &&child_executor)
     : AbstractExecutor(exec_ctx) {
+  // HINT: store `plan_`, move in `child_executor_`, and construct `aht_` from
+  // `plan->GetAggregates()` / `plan->GetAggregateTypes()`. `aht_iterator_` needs a valid initial
+  // value too (e.g. `aht_.Begin()`, called after `aht_` is constructed).
   UNIMPLEMENTED("TODO(P3): Add implementation.");
 }
 
 /** Initialize the aggregation */
-void AggregationExecutor::Init() { UNIMPLEMENTED("TODO(P3): Add implementation."); }
+void AggregationExecutor::Init() {
+  // HINT: this is the pipeline-breaker's build phase (see hint in aggregation_executor.h) —
+  // `child_executor_->Init()`, `aht_.Clear()`, then loop pulling batches via `child_executor_->Next()`
+  // and call `aht_.InsertCombine(MakeAggregateKey(&tuple), MakeAggregateValue(&tuple))` for every
+  // tuple. Handle the "no GROUP BY + empty input" edge case, then reset `aht_iterator_ = aht_.Begin()`.
+  UNIMPLEMENTED("TODO(P3): Add implementation.");
+}
 
 /**
  * Yield the next tuple batch from the aggregation.
@@ -42,6 +51,11 @@ void AggregationExecutor::Init() { UNIMPLEMENTED("TODO(P3): Add implementation."
 
 auto AggregationExecutor::Next(std::vector<bustub::Tuple> *tuple_batch, std::vector<bustub::RID> *rid_batch,
                                size_t batch_size) -> bool {
+  // HINT: since the build phase already happened in Init(), Next() just walks `aht_iterator_`
+  // until `aht_.End()` (or `batch_size` is reached), building each output tuple from
+  // `aht_iterator_.Key().group_bys_` followed by `aht_iterator_.Val().aggregates_`, then
+  // `++aht_iterator_`. Remember to `tuple_batch->clear()` / `rid_batch->clear()` first, and push a
+  // dummy `RID{}` per output row (rid_batch is otherwise unused for this executor).
   UNIMPLEMENTED("TODO(P3): Add implementation.");
 }
 

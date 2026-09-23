@@ -40,5 +40,13 @@ class IndexScanExecutor : public AbstractExecutor {
  private:
   /** The index scan plan node to be executed. */
   const IndexScanPlanNode *plan_;
+
+  // HINT: you'll need at least:
+  //  - `const TableInfo *table_info_` and `const IndexInfo *index_info_` (from the catalog)
+  //  - `BPlusTreeIndexForTwoIntegerColumn *tree_` (dynamic_cast of `index_info_->index_.get()`)
+  //  - state for point lookup (e.g. `std::vector<RID> lookup_rids_` + a cursor) OR for ordered scan
+  //    (e.g. `std::unique_ptr<BPlusTreeIndexIteratorForTwoIntegerColumn> iterator_`), depending on
+  //    whether `plan_->pred_keys_` is populated.
+  // See b_plus_tree_index.h and index_iterator.h for the exact types.
 };
 }  // namespace bustub

@@ -26,11 +26,16 @@ namespace bustub {
 UpdateExecutor::UpdateExecutor(ExecutorContext *exec_ctx, const UpdatePlanNode *plan,
                                std::unique_ptr<AbstractExecutor> &&child_executor)
     : AbstractExecutor(exec_ctx) {
+  // HINT: same shape as InsertExecutor's constructor — store `plan_`, look up `table_info_`
+  // via `exec_ctx->GetCatalog()->GetTable(plan->GetTableOid())`, and move in `child_executor_`.
   UNIMPLEMENTED("TODO(P3): Add implementation.");
 }
 
 /** Initialize the update */
-void UpdateExecutor::Init() { UNIMPLEMENTED("TODO(P3): Add implementation."); }
+void UpdateExecutor::Init() {
+  // HINT: call `child_executor_->Init()` and reset a "already produced output" flag.
+  UNIMPLEMENTED("TODO(P3): Add implementation.");
+}
 
 /**
  * Yield the number of rows updated in the table.
@@ -44,6 +49,16 @@ void UpdateExecutor::Init() { UNIMPLEMENTED("TODO(P3): Add implementation."); }
  */
 auto UpdateExecutor::Next(std::vector<bustub::Tuple> *tuple_batch, std::vector<bustub::RID> *rid_batch,
                           size_t batch_size) -> bool {
+  // HINT: the task doc says "to implement an update, first delete the affected tuple and then
+  // insert a new tuple". For each (old_tuple, old_rid) pulled from `child_executor_`:
+  // 1. Skip it if `table_info_->table_->GetTupleMeta(old_rid).is_deleted_` is already true.
+  // 2. Evaluate `plan_->target_expressions_[i]->Evaluate(&old_tuple, child_executor_->GetOutputSchema())`
+  //    for each column to build the new tuple's values, then construct `Tuple(new_values, &table_info_->schema_)`.
+  // 3. Mark the old RID deleted via `UpdateTupleMeta({0, true}, old_rid)` and remove its index entries
+  //    (`DeleteEntry`, keyed the same way as in InsertExecutor).
+  // 4. Insert the new tuple (`InsertTuple({0, false}, new_tuple)`) and add its index entries.
+  // 5. Count updates, emit one INTEGER-count tuple once all input is consumed, guard against calling
+  //    twice with a "done" flag.
   UNIMPLEMENTED("TODO(P3): Add implementation.");
 }
 

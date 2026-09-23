@@ -42,6 +42,11 @@ class InsertExecutor : public AbstractExecutor {
  private:
   /** The insert plan node to be executed*/
   const InsertPlanNode *plan_;
+
+  // HINT: You will need at least these two members:
+  //  - `const TableInfo *table_info_` — looked up via `exec_ctx->GetCatalog()->GetTable(plan->GetTableOid())`
+  //  - `std::unique_ptr<AbstractExecutor> child_executor_` — the child producing values to insert
+  // Next() must only emit its "rows inserted" tuple once; consider a `bool done_{false}` flag too.
 };
 
 }  // namespace bustub

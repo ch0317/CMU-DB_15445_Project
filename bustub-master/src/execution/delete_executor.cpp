@@ -26,11 +26,15 @@ namespace bustub {
 DeleteExecutor::DeleteExecutor(ExecutorContext *exec_ctx, const DeletePlanNode *plan,
                                std::unique_ptr<AbstractExecutor> &&child_executor)
     : AbstractExecutor(exec_ctx) {
+  // HINT: store `plan_`, look up `table_info_` via the catalog, move in `child_executor_`.
   UNIMPLEMENTED("TODO(P3): Add implementation.");
 }
 
 /** Initialize the delete */
-void DeleteExecutor::Init() { UNIMPLEMENTED("TODO(P3): Add implementation."); }
+void DeleteExecutor::Init() {
+  // HINT: call `child_executor_->Init()` and reset a "already produced output" flag.
+  UNIMPLEMENTED("TODO(P3): Add implementation.");
+}
 
 /**
  * Yield the number of rows deleted from the table.
@@ -44,6 +48,12 @@ void DeleteExecutor::Init() { UNIMPLEMENTED("TODO(P3): Add implementation."); }
  */
 auto DeleteExecutor::Next(std::vector<bustub::Tuple> *tuple_batch, std::vector<bustub::RID> *rid_batch,
                           size_t batch_size) -> bool {
+  // HINT: pull (tuple, rid) batches from `child_executor_`. For each rid not already deleted
+  // (check `table_info_->table_->GetTupleMeta(rid).is_deleted_`), call
+  // `table_info_->table_->UpdateTupleMeta({0, true}, rid)` and remove the tuple's entry from every
+  // index on the table (build the key with `tuple.KeyFromTuple(...)`, then `index_->DeleteEntry(...)`).
+  // Emit ONE INTEGER tuple with the total deleted count once the child is exhausted; guard against
+  // being called again afterwards with a "done" flag.
   UNIMPLEMENTED("TODO(P3): Add implementation.");
 }
 

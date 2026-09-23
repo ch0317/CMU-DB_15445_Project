@@ -25,8 +25,8 @@ SeqScanExecutor::SeqScanExecutor(ExecutorContext *exec_ctx, const SeqScanPlanNod
 
 /** Initialize the sequential scan */
 void SeqScanExecutor::Init() { 
-  auto table_info = exec_ctx_->GetCatalog()->GetTable(plan_->GetTableOid());
-  iterator_.emplace(table_info->table_->MakeIterator());
+  table_info_ = exec_ctx_->GetCatalog()->GetTable(plan_->GetTableOid()).get();
+  iterator_.emplace(table_info_->table_->MakeIterator());
 }
 
 /**
@@ -45,7 +45,7 @@ auto SeqScanExecutor::Next(std::vector<bustub::Tuple> *tuple_batch, std::vector<
     auto [tuple_meta, tuple] = iterator_->GetTuple();
     auto rid = iterator_->GetRID();
 
-    (*iterator)++;
+    ++(*iterator_);
 
     if(tuple_meta.is_deleted_){
       continue;

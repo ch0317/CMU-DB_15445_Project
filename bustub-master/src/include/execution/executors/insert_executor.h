@@ -47,6 +47,9 @@ class InsertExecutor : public AbstractExecutor {
   //  - `const TableInfo *table_info_` — looked up via `exec_ctx->GetCatalog()->GetTable(plan->GetTableOid())`
   //  - `std::unique_ptr<AbstractExecutor> child_executor_` — the child producing values to insert
   // Next() must only emit its "rows inserted" tuple once; consider a `bool done_{false}` flag too.
+  const TableInfo *table_info_;
+  std::unique_ptr<AbstractExecutor> child_executor_;
+  bool done_{false};
 };
 
 }  // namespace bustub

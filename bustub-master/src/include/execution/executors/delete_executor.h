@@ -49,5 +49,8 @@ class DeleteExecutor : public AbstractExecutor {
 
   // HINT: you'll also need `const TableInfo *table_info_` (from the catalog) and a
   // `bool done_{false}` flag so Next() only emits its output row once.
+  const TableInfo *table_info_;
+  bool done_{false};
+
 };
 }  // namespace bustub

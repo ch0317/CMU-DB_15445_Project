@@ -47,7 +47,7 @@ auto SeqScanExecutor::Next(std::vector<bustub::Tuple> *tuple_batch, std::vector<
 
     // HINT: `iterator_` is `std::optional<TableIterator>` — dereference it before incrementing,
     // and prefer pre-increment `++(*iterator_)` (see the pre/post-increment hint in the task doc).
-    // (*iterator)++;
+    ++(*iterator);
 
     if(tuple_meta.is_deleted_){
       continue;

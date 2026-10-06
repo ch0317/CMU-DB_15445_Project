@@ -12,6 +12,8 @@
 
 #include "execution/executors/seq_scan_executor.h"
 #include "common/macros.h"
+#include "concurrency/transaction_manager.h"
+#include "execution/execution_common.h"
 
 namespace bustub {
 
@@ -42,14 +44,23 @@ auto SeqScanExecutor::Next(std::vector<bustub::Tuple> *tuple_batch, std::vector<
   rid_batch->clear();
 
   while (!iterator_->IsEnd() && tuple_batch->size() < batch_size) {
-    auto [tuple_meta, tuple] = iterator_->GetTuple();
     auto rid = iterator_->GetRID();
+    auto [tuple_meta, base, link] =
+        GetTupleAndUndoLink(exec_ctx_->GetTransactionManager(), table_info_->table_.get(), rid);
 
     ++(*iterator_);
 
-    if (tuple_meta.is_deleted_) {
+    auto logs =
+        CollectUndoLogs(rid, tuple_meta, base, link, exec_ctx_->GetTransaction(), exec_ctx_->GetTransactionManager());
+    if (!logs.has_value()) {
       continue;
     }
+    auto visible = ReconstructTuple(&table_info_->schema_, base, tuple_meta, *logs);
+    if (!visible.has_value()) {
+      continue;
+    }
+    auto tuple = *visible;
+    tuple.SetRid(rid);
 
     if (plan_->filter_predicate_ != nullptr) {
       auto value = plan_->filter_predicate_->Evaluate(&tuple, table_info_->schema_);

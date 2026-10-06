@@ -52,7 +52,31 @@ auto GenerateSortKey(const Tuple &tuple, const std::vector<OrderBy> &order_bys, 
  */
 auto ReconstructTuple(const Schema *schema, const Tuple &base_tuple, const TupleMeta &base_meta,
                       const std::vector<UndoLog> &undo_logs) -> std::optional<Tuple> {
-  UNIMPLEMENTED("not implemented");
+  std::vector<Value> values;
+  for (uint32_t i = 0; i < schema->GetColumnCount(); i++) {
+    values.push_back(base_tuple.GetValue(schema, i));
+  }
+  bool deleted = base_meta.is_deleted_;
+  for (const auto &log : undo_logs) {
+    std::vector<Column> columns;
+    for (uint32_t i = 0; i < schema->GetColumnCount(); i++) {
+      if (log.modified_fields_[i]) {
+        columns.push_back(schema->GetColumn(i));
+      }
+    }
+    Schema undo_schema(columns);
+    uint32_t index = 0;
+    for (uint32_t i = 0; i < schema->GetColumnCount(); i++) {
+      if (log.modified_fields_[i]) {
+        values[i] = log.tuple_.GetValue(&undo_schema, index++);
+      }
+    }
+    deleted = log.is_deleted_;
+  }
+  if (deleted) {
+    return std::nullopt;
+  }
+  return Tuple(values, schema);
 }
 
 /**
@@ -69,7 +93,19 @@ auto ReconstructTuple(const Schema *schema, const Tuple &base_tuple, const Tuple
  */
 auto CollectUndoLogs(RID rid, const TupleMeta &base_meta, const Tuple &base_tuple, std::optional<UndoLink> undo_link,
                      Transaction *txn, TransactionManager *txn_mgr) -> std::optional<std::vector<UndoLog>> {
-  UNIMPLEMENTED("not implemented");
+  std::vector<UndoLog> logs;
+  if (base_meta.ts_ <= txn->GetReadTs() || base_meta.ts_ == txn->GetTransactionTempTs()) {
+    return logs;
+  }
+  while (undo_link.has_value() && undo_link->IsValid()) {
+    auto log = txn_mgr->GetUndoLog(*undo_link);
+    logs.push_back(log);
+    if (log.ts_ <= txn->GetReadTs()) {
+      return logs;
+    }
+    undo_link = log.prev_version_;
+  }
+  return std::nullopt;
 }
 
 /**
@@ -105,28 +141,22 @@ auto GenerateUpdatedUndoLog(const Schema *schema, const Tuple *base_tuple, const
 
 void TxnMgrDbg(const std::string &info, TransactionManager *txn_mgr, const TableInfo *table_info,
                TableHeap *table_heap) {
-  // always use stderr for printing logs...
   fmt::println(stderr, "debug_hook: {}", info);
-
-  fmt::println(
-      stderr,
-      "You see this line of text because you have not implemented `TxnMgrDbg`. You should do this once you have "
-      "finished task 2. Implementing this helper function will save you a lot of time for debugging in later tasks.");
-
-  // We recommend implementing this function as traversing the table heap and print the version chain. An example output
-  // of our reference solution:
-  //
-  // debug_hook: before verify scan
-  // RID=0/0 ts=txn8 tuple=(1, <NULL>, <NULL>)
-  //   txn8@0 (2, _, _) ts=1
-  // RID=0/1 ts=3 tuple=(3, <NULL>, <NULL>)
-  //   txn5@0 <del> ts=2
-  //   txn3@0 (4, <NULL>, <NULL>) ts=1
-  // RID=0/2 ts=4 <del marker> tuple=(<NULL>, <NULL>, <NULL>)
-  //   txn7@0 (5, <NULL>, <NULL>) ts=3
-  // RID=0/3 ts=txn6 <del marker> tuple=(<NULL>, <NULL>, <NULL>)
-  //   txn6@0 (6, <NULL>, <NULL>) ts=2
-  //   txn3@1 (7, _, _) ts=1
+  for (auto iter = table_heap->MakeIterator(); !iter.IsEnd(); ++iter) {
+    auto rid = iter.GetRID();
+    auto [meta, tuple, link] = GetTupleAndUndoLink(txn_mgr, table_heap, rid);
+    fmt::println(stderr, "RID={}/{} ts={} deleted={} tuple={}", rid.GetPageId(), rid.GetSlotNum(), meta.ts_,
+                 meta.is_deleted_, tuple.ToString(&table_info->schema_));
+    while (link.has_value() && link->IsValid()) {
+      auto log = txn_mgr->GetUndoLogOptional(*link);
+      if (!log.has_value()) {
+        break;
+      }
+      fmt::println(stderr, "  txn={} log={} ts={} deleted={}", link->prev_txn_ ^ TXN_START_ID, link->prev_log_idx_,
+                   log->ts_, log->is_deleted_);
+      link = log->prev_version_;
+    }
+  }
 }
 
 }  // namespace bustub

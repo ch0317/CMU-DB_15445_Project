@@ -52,6 +52,5 @@ class UpdateExecutor : public AbstractExecutor {
   std::unique_ptr<AbstractExecutor> child_executor_;
 
   // HINT: add a `bool done_{false}` flag so Next() only emits its output row once.
-  bool done_{false};
 };
 }  // namespace bustub

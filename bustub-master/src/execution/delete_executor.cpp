@@ -11,8 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 #include <memory>
-#include "catalog/catalog.h"
-#include "common/config.h"
 #include "common/macros.h"
 
 #include "execution/executors/delete_executor.h"
@@ -27,18 +25,15 @@ namespace bustub {
  */
 DeleteExecutor::DeleteExecutor(ExecutorContext *exec_ctx, const DeletePlanNode *plan,
                                std::unique_ptr<AbstractExecutor> &&child_executor)
-    : AbstractExecutor(exec_ctx), plan_(plan), 
-    table_info_(exec_ctx->GetCatalog()->GetTable(plan_->GetTableOid()).get()),
-    child_executor_(std::move(child_executor_))
-{
+    : AbstractExecutor(exec_ctx) {
   // HINT: store `plan_`, look up `table_info_` via the catalog, move in `child_executor_`.
+  UNIMPLEMENTED("TODO(P3): Add implementation.");
 }
 
 /** Initialize the delete */
 void DeleteExecutor::Init() {
   // HINT: call `child_executor_->Init()` and reset a "already produced output" flag.
-  child_executor_->Init();
-  done_ = false;
+  UNIMPLEMENTED("TODO(P3): Add implementation.");
 }
 
 /**
@@ -59,44 +54,7 @@ auto DeleteExecutor::Next(std::vector<bustub::Tuple> *tuple_batch, std::vector<b
   // index on the table (build the key with `tuple.KeyFromTuple(...)`, then `index_->DeleteEntry(...)`).
   // Emit ONE INTEGER tuple with the total deleted count once the child is exhausted; guard against
   // being called again afterwards with a "done" flag.
-  tuple_batch->clear();
-  rid_batch->clear();
-
-  if(done_){
-    return false;
-  }
-
-  auto *catalog = exec_ctx_->GetCatalog();
-  auto indexes = catalog->GetTableIndexes(table_info_->name_);
-
-  int32_t deleted_count = 0;
-  std::vector<Tuple> child_tuples;
-  std::vector<RID> child_rids;
-
-  while(child_executor_->Next(&child_tuples, &child_rids, BUSTUB_BATCH_SIZE)){
-    for(size_t i = 0; i < child_tuples.size(); i++){
-      auto &tuple = child_tuples[i];
-      auto &rid = child_rids[i];
-
-      auto meta = table_info_->table_->GetTupleMeta(rid);
-      if(meta.is_deleted_){
-        continue;
-      }
-
-      table_info_->table_->UpdateTupleMeta({0, true}, rid);
-
-      for(const auto index_info : indexes) {
-        auto key = tuple.KeyFromTuple(table_info_->schema_, index_info->key_schema_, index_info->index_->GetKeyAttrs());
-        index_info->index_->DeleteEntry(key, rid, exec_ctx_->GetTransaction());
-      }
-
-      deleted_count += 1;
-    }
-  }
-
-  tuple_batch->emplace_back(std::vector<Value> {Value(TypeId::INTEGER, deleted_count)}, &GetOutputSchema());
-  done_ = true;
-  return true;
+  UNIMPLEMENTED("TODO(P3): Add implementation.");
 }
 
 }  // namespace bustub

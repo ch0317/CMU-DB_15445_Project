@@ -25,20 +25,16 @@ namespace bustub {
  */
 InsertExecutor::InsertExecutor(ExecutorContext *exec_ctx, const InsertPlanNode *plan,
                                std::unique_ptr<AbstractExecutor> &&child_executor)
-    : AbstractExecutor(exec_ctx) ,
-    plan_(plan),
-    table_info_(exec_ctx->GetCatalog()->GetTable(plan_->GetTableOid()).get()),
-    child_executor_(std::move(child_executor)){
+    : AbstractExecutor(exec_ctx) {
   // HINT: initialize `plan_`, look up `table_info_` from the catalog using `plan->GetTableOid()`,
   // and store `child_executor` (moved) as `child_executor_`.
-  
+  UNIMPLEMENTED("TODO(P3): Add implementation.");
 }
 
 /** Initialize the insert */
 void InsertExecutor::Init() {
   // HINT: call `child_executor_->Init()` and reset the `done_` flag.
-  child_executor_->Init();
-  done_ = false;
+  UNIMPLEMENTED("TODO(P3): Add implementation.");
 }
 
 /**
@@ -64,43 +60,7 @@ auto InsertExecutor::Next(std::vector<bustub::Tuple> *tuple_batch, std::vector<b
   //    and call `index_info->index_->InsertEntry(key, rid, exec_ctx_->GetTransaction())`.
   // 5. Count how many rows were inserted, push ONE tuple of that INTEGER count into `tuple_batch`,
   //    set `done_ = true`, and return true.
-  tuple_batch->clear();
-  rid_batch->clear();
-
-  if(done_){
-    return false;
-  }
-
-  std::vector<bustub::Tuple> child_tuple;
-  std::vector<bustub::RID> rid_batch;
-  int insert_count = 0;
-
-  auto *catalog = exec_ctx_->GetCatalog();
-  auto indexes = catalog->GetTableIndexes(table_info_->name_);
-
-  while(child_executor_->Next(&child_tuple, &rid_batch, BUSTUB_BATCH_SIZE)) {
-    for(int i = 0; i < child_tuple.size(); i++){
-      TupleMeta meta{0, false};
-      auto rid_opt = table_info_->table_->InsertTuple(meta, child_tuple[i]);
-      if(!rid_opt.has_value()){
-        continue;
-      }
-
-      auto rid = rid_opt.value();
-
-      for(const auto &index_info : indexes) {
-        auto key = child_tuple[i].KeyFromTuple(table_info_->schema_, index_info->key_schema_, index_info->index_->GetKeyAttrs());
-        index_info->index_->InsertEntry(key, rid, exec_ctx_->GetTransaction());
-      }
-
-      insert_count++;
-
-    }
-  }
-
-  tuple_batch->emplace_back(std::vector<Value>{Value(TypeId::INTEGER, insert_count)}, &GetOutputSchema());
-  done_ = true;
-  return true;
+  UNIMPLEMENTED("TODO(P3): Add implementation.");
 }
 
 }  // namespace bustub

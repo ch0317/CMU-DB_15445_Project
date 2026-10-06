@@ -14,7 +14,6 @@
 
 #include <memory>
 #include <vector>
-#include <optional>
 
 #include "execution/executor_context.h"
 #include "execution/executors/abstract_executor.h"
@@ -57,7 +56,6 @@ class NestedLoopJoinExecutor : public AbstractExecutor {
   // A helper like `BuildJoinTuple(left_tuple, right_tuple_or_nullptr)` that concatenates left and
   // right schema columns (using `ValueFactory::GetNullValueByType` for the missing side on a LEFT
   // join non-match) will keep Next() readable.
-
 };
 
 }  // namespace bustub

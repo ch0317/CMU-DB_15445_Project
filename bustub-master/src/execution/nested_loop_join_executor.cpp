@@ -14,6 +14,7 @@
 #include "binder/table_ref/bound_join_ref.h"
 #include "common/exception.h"
 #include "common/macros.h"
+#include "common/config.h"
 
 namespace bustub {
 

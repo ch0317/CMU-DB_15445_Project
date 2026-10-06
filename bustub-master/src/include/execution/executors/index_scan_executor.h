@@ -14,10 +14,12 @@
 
 #include <vector>
 
+#include <catalog/catalog.h>
 #include "common/rid.h"
 #include "execution/executor_context.h"
 #include "execution/executors/abstract_executor.h"
 #include "execution/plans/index_scan_plan.h"
+#include "storage/index/b_plus_tree_index.h"
 #include "storage/table/tuple.h"
 
 namespace bustub {
@@ -48,5 +50,11 @@ class IndexScanExecutor : public AbstractExecutor {
   //    (e.g. `std::unique_ptr<BPlusTreeIndexIteratorForTwoIntegerColumn> iterator_`), depending on
   //    whether `plan_->pred_keys_` is populated.
   // See b_plus_tree_index.h and index_iterator.h for the exact types.
+  const TableInfo *table_info_;
+  const IndexInfo *index_info_;
+  std::vector<RID> lookup_rids_;
+  size_t lookup_cursor_{0};
+  BPlusTreeIndexForTwoIntegerColumn *tree_;
+  std::unique_ptr<BPlusTreeIndexForTwoIntegerColumn> iterator_;
 };
 }  // namespace bustub

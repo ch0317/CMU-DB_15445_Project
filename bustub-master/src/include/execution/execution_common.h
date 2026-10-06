@@ -59,6 +59,9 @@ auto GenerateNewUndoLog(const Schema *schema, const Tuple *base_tuple, const Tup
 auto GenerateUpdatedUndoLog(const Schema *schema, const Tuple *base_tuple, const Tuple *target_tuple,
                             const UndoLog &log) -> UndoLog;
 
+auto InsertTupleMvcc(Catalog *catalog, TransactionManager *txn_mgr, Transaction *txn, const TableInfo *table_info,
+                     const Tuple &tuple) -> RID;
+
 void ThrowWriteConflict(Transaction *txn);
 
 void ModifyTuple(TransactionManager *txn_mgr, Transaction *txn, const TableInfo *table_info, RID rid,

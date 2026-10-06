@@ -15,6 +15,7 @@
  * For range scan of b+ tree
  */
 #pragma once
+#include <memory>
 #include <utility>
 #include "buffer/traced_buffer_pool_manager.h"
 #include "common/config.h"

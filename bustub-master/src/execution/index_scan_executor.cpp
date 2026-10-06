@@ -11,8 +11,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "execution/executors/index_scan_executor.h"
+#include <unordered_set>
 #include "common/config.h"
 #include "common/macros.h"
+#include "concurrency/transaction_manager.h"
+#include "execution/execution_common.h"
 
 namespace bustub {
 
@@ -29,6 +32,7 @@ IndexScanExecutor::IndexScanExecutor(ExecutorContext *exec_ctx, const IndexScanP
       tree_(dynamic_cast<BPlusTreeIndexForTwoIntegerColumn *>(index_info_->index_.get())) {}
 
 void IndexScanExecutor::Init() {
+  exec_ctx_->GetTransaction()->AppendScanPredicate(table_info_->oid_, plan_->filter_predicate_);
   lookup_rids_.clear();
   lookup_cursor_ = 0;
 
@@ -38,9 +42,17 @@ void IndexScanExecutor::Init() {
       auto value = key_expr->Evaluate(nullptr, dummy_schema);
       Tuple key_tuple(std::vector<Value>{value}, index_info_->index_->GetKeySchema());
       std::vector<RID> result;
-      tree_->ScanKey(key_tuple, &result, exec_ctx_->GetTransaction());
+      index_info_->index_->ScanKey(key_tuple, &result, exec_ctx_->GetTransaction());
       lookup_rids_.insert(lookup_rids_.end(), result.begin(), result.end());
     }
+    std::unordered_set<RID> seen;
+    std::vector<RID> unique;
+    for (auto rid : lookup_rids_) {
+      if (seen.insert(rid).second) {
+        unique.push_back(rid);
+      }
+    }
+    lookup_rids_ = std::move(unique);
     iterator_.reset();
   } else {
     // IndexIterator has no copy/move constructor (it owns a page guard), so std::make_unique cannot
@@ -55,28 +67,38 @@ auto IndexScanExecutor::Next(std::vector<bustub::Tuple> *tuple_batch, std::vecto
   tuple_batch->clear();
   rid_batch->clear();
 
-  if (!plan_->pred_keys_.empty()) {
-    while (lookup_cursor_ < lookup_rids_.size() && tuple_batch->size() < batch_size) {
-      auto rid = lookup_rids_[lookup_cursor_++];
-      auto [meta, tuple] = table_info_->table_->GetTuple(rid);
-      if (meta.is_deleted_) {
-        continue;
+  while (tuple_batch->size() < batch_size) {
+    RID rid;
+    if (!plan_->pred_keys_.empty()) {
+      if (lookup_cursor_ == lookup_rids_.size()) {
+        break;
       }
-      tuple_batch->push_back(tuple);
-      rid_batch->push_back(rid);
-    }
-  } else {
-    while (!iterator_->IsEnd() && tuple_batch->size() < batch_size) {
-      auto rid = (**iterator_).second;
+      rid = lookup_rids_[lookup_cursor_++];
+    } else {
+      if (iterator_->IsEnd()) {
+        break;
+      }
+      rid = (**iterator_).second;
       ++(*iterator_);
-
-      auto [meta, tuple] = table_info_->table_->GetTuple(rid);
-      if (meta.is_deleted_) {
+    }
+    auto [meta, base, link] = GetTupleAndUndoLink(exec_ctx_->GetTransactionManager(), table_info_->table_.get(), rid);
+    auto logs = CollectUndoLogs(rid, meta, base, link, exec_ctx_->GetTransaction(), exec_ctx_->GetTransactionManager());
+    if (!logs.has_value()) {
+      continue;
+    }
+    auto tuple = ReconstructTuple(&table_info_->schema_, base, meta, *logs);
+    if (!tuple.has_value()) {
+      continue;
+    }
+    if (plan_->filter_predicate_ != nullptr) {
+      auto value = plan_->filter_predicate_->Evaluate(&*tuple, table_info_->schema_);
+      if (value.IsNull() || !value.GetAs<bool>()) {
         continue;
       }
-      tuple_batch->push_back(tuple);
-      rid_batch->push_back(rid);
     }
+    tuple->SetRid(rid);
+    tuple_batch->push_back(*tuple);
+    rid_batch->push_back(rid);
   }
 
   return !tuple_batch->empty();

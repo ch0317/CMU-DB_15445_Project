@@ -28,6 +28,7 @@ SeqScanExecutor::SeqScanExecutor(ExecutorContext *exec_ctx, const SeqScanPlanNod
 /** Initialize the sequential scan */
 void SeqScanExecutor::Init() {
   table_info_ = exec_ctx_->GetCatalog()->GetTable(plan_->GetTableOid()).get();
+  exec_ctx_->GetTransaction()->AppendScanPredicate(table_info_->oid_, plan_->filter_predicate_);
   iterator_.emplace(table_info_->table_->MakeIterator());
 }
 

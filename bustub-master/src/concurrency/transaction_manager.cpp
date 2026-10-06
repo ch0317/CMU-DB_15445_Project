@@ -12,6 +12,8 @@
 
 #include "concurrency/transaction_manager.h"
 
+#include <algorithm>
+#include <limits>
 #include <memory>
 #include <mutex>  // NOLINT
 #include <optional>
@@ -55,7 +57,64 @@ auto TransactionManager::Begin(IsolationLevel isolation_level) -> Transaction * 
 
 /** @brief Verify if a txn satisfies serializability. We will not test this function and you can change / remove it as
  * you want. */
-auto TransactionManager::VerifyTxn(Transaction *txn) -> bool { return true; }
+auto TransactionManager::VerifyTxn(Transaction *txn) -> bool {
+  if (txn->GetWriteSets().empty()) {
+    return true;
+  }
+  std::unordered_map<table_oid_t, std::unordered_set<RID>> changed;
+  {
+    std::shared_lock<std::shared_mutex> lock(txn_map_mutex_);
+    for (const auto &[id, other] : txn_map_) {
+      if (other->GetTransactionState() != TransactionState::COMMITTED || other->GetCommitTs() <= txn->GetReadTs()) {
+        continue;
+      }
+      for (const auto &[oid, rids] : other->GetWriteSets()) {
+        if (txn->GetScanPredicates().count(oid) != 0) {
+          changed[oid].insert(rids.begin(), rids.end());
+        }
+      }
+    }
+  }
+  for (const auto &[oid, rids] : changed) {
+    auto table = catalog_->GetTable(oid);
+    const auto &predicates = txn->GetScanPredicates().at(oid);
+    auto matches = [&](const std::optional<Tuple> &tuple) {
+      if (!tuple.has_value()) {
+        return false;
+      }
+      return std::any_of(predicates.begin(), predicates.end(), [&](const AbstractExpressionRef &predicate) {
+        if (predicate == nullptr) {
+          return true;
+        }
+        auto value = predicate->Evaluate(&*tuple, table->schema_);
+        return !value.IsNull() && value.GetAs<bool>();
+      });
+    };
+    for (auto rid : rids) {
+      auto [meta, base, link] = GetTupleAndUndoLink(this, table->table_.get(), rid);
+      auto current = ReconstructTuple(&table->schema_, base, meta, {});
+      while (meta.ts_ > txn->GetReadTs()) {
+        std::optional<UndoLog> log;
+        if (link.has_value() && link->IsValid()) {
+          log = GetUndoLogOptional(*link);
+        }
+        auto before = log.has_value() ? ReconstructTuple(&table->schema_, base, meta, {*log}) : std::nullopt;
+        // Temporary versions are not committed writes. Their undo image is the latest committed state.
+        if (meta.ts_ < TXN_START_ID && (matches(current) || matches(before))) {
+          return false;
+        }
+        if (!log.has_value()) {
+          break;
+        }
+        base = before.value_or(base);
+        meta = {log->ts_, log->is_deleted_};
+        current = before;
+        link = log->prev_version_;
+      }
+    }
+  }
+  return true;
+}
 
 /**
  * Commits a transaction.
@@ -165,10 +224,20 @@ void TransactionManager::GarbageCollection() {
     }
   }
   std::unique_lock<std::shared_mutex> lock(txn_map_mutex_);
+  // Serializable validation also needs recent write sets, even for inserts without undo logs.
+  timestamp_t serial_read_ts = std::numeric_limits<timestamp_t>::max();
+  for (const auto &[id, txn] : txn_map_) {
+    if (txn->GetIsolationLevel() == IsolationLevel::SERIALIZABLE &&
+        (txn->GetTransactionState() == TransactionState::RUNNING ||
+         txn->GetTransactionState() == TransactionState::TAINTED)) {
+      serial_read_ts = std::min(serial_read_ts, txn->GetReadTs());
+    }
+  }
   for (auto iter = txn_map_.begin(); iter != txn_map_.end();) {
     auto state = iter->second->GetTransactionState();
     if ((state == TransactionState::COMMITTED || state == TransactionState::ABORTED) &&
-        needed.count(iter->first) == 0) {
+        needed.count(iter->first) == 0 &&
+        (state != TransactionState::COMMITTED || iter->second->GetCommitTs() <= serial_read_ts)) {
       iter = txn_map_.erase(iter);
     } else {
       ++iter;

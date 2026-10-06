@@ -240,6 +240,32 @@ void ModifyTuple(TransactionManager *txn_mgr, Transaction *txn, const TableInfo 
   txn->AppendWriteSet(table_info->oid_, rid);
 }
 
+auto InsertTupleMvcc(Catalog *catalog, TransactionManager *txn_mgr, Transaction *txn, const TableInfo *table_info,
+                     const Tuple &tuple) -> RID {
+  auto indexes = catalog->GetTableIndexes(table_info->name_);
+  for (const auto &index : indexes) {
+    auto key = tuple.KeyFromTuple(table_info->schema_, index->key_schema_, index->index_->GetKeyAttrs());
+    std::vector<RID> rids;
+    index->index_->ScanKey(key, &rids, txn);
+    if (!rids.empty()) {
+      ModifyTuple(txn_mgr, txn, table_info, rids.front(), &tuple, true);
+      return rids.front();
+    }
+  }
+  auto rid = table_info->table_->InsertTuple({txn->GetTransactionTempTs(), false}, tuple);
+  if (!rid.has_value()) {
+    ThrowWriteConflict(txn);
+  }
+  txn->AppendWriteSet(table_info->oid_, *rid);
+  for (const auto &index : indexes) {
+    auto key = tuple.KeyFromTuple(table_info->schema_, index->key_schema_, index->index_->GetKeyAttrs());
+    if (!index->index_->InsertEntry(key, *rid, txn)) {
+      ThrowWriteConflict(txn);
+    }
+  }
+  return *rid;
+}
+
 void TxnMgrDbg(const std::string &info, TransactionManager *txn_mgr, const TableInfo *table_info,
                TableHeap *table_heap) {
   fmt::println(stderr, "debug_hook: {}", info);

@@ -62,20 +62,42 @@ auto UpdateExecutor::Next(std::vector<bustub::Tuple> *tuple_batch, std::vector<b
   std::vector<Tuple> child_tuples;
   std::vector<RID> child_rids;
   std::vector<std::pair<RID, Tuple>> updates;
+  std::unordered_set<RID> moved;
+  auto indexes = exec_ctx_->GetCatalog()->GetTableIndexes(table_info_->name_);
   while (child_executor_->Next(&child_tuples, &child_rids, BUSTUB_BATCH_SIZE)) {
     for (size_t i = 0; i < child_tuples.size(); i++) {
       std::vector<Value> values;
+      values.reserve(plan_->target_expressions_.size());
       for (const auto &expr : plan_->target_expressions_) {
         values.push_back(expr->Evaluate(&child_tuples[i], child_executor_->GetOutputSchema()));
       }
-      updates.emplace_back(child_rids[i], Tuple(values, &table_info_->schema_));
+      Tuple target(values, &table_info_->schema_);
+      for (const auto &index : indexes) {
+        if (!index->is_primary_key_) {
+          continue;
+        }
+        auto before =
+            child_tuples[i].KeyFromTuple(table_info_->schema_, index->key_schema_, index->index_->GetKeyAttrs());
+        auto after = target.KeyFromTuple(table_info_->schema_, index->key_schema_, index->index_->GetKeyAttrs());
+        if (!IsTupleContentEqual(before, after)) {
+          moved.insert(child_rids[i]);
+        }
+      }
+      updates.emplace_back(child_rids[i], std::move(target));
     }
   }
   for (const auto &[rid, tuple] : updates) {
-    ModifyTuple(exec_ctx_->GetTransactionManager(), exec_ctx_->GetTransaction(), table_info_, rid, &tuple);
+    ModifyTuple(exec_ctx_->GetTransactionManager(), exec_ctx_->GetTransaction(), table_info_, rid,
+                moved.count(rid) == 0 ? &tuple : nullptr);
     updated_count++;
   }
 
+  for (const auto &[rid, tuple] : updates) {
+    if (moved.count(rid) != 0) {
+      InsertTupleMvcc(exec_ctx_->GetCatalog(), exec_ctx_->GetTransactionManager(), exec_ctx_->GetTransaction(),
+                      table_info_, tuple);
+    }
+  }
   tuple_batch->emplace_back(std::vector<Value>{Value(TypeId::INTEGER, updated_count)}, &GetOutputSchema());
   done_ = true;
   return true;

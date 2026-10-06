@@ -15,7 +15,7 @@
 #include <cstddef>
 #include <functional>
 #include <memory>
-#include <mutex>
+#include <mutex>  // NOLINT
 #include <shared_mutex>
 #include <string>
 #include <vector>

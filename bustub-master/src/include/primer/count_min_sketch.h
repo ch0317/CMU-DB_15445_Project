@@ -14,7 +14,7 @@
 
 #include <cstdint>
 #include <functional>
-#include <mutex>
+#include <mutex>  // NOLINT
 #include <utility>
 #include <vector>
 #include "common/util/hash_util.h"

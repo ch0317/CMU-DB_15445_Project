@@ -58,29 +58,14 @@ auto InsertExecutor::Next(std::vector<bustub::Tuple> *tuple_batch, std::vector<b
     return false;
   }
 
-  auto *catalog = exec_ctx_->GetCatalog();
-  auto indexes = catalog->GetTableIndexes(table_info_->name_);
-
   int32_t inserted_count = 0;
   std::vector<Tuple> child_tuples;
   std::vector<RID> child_rids;
-
   while (child_executor_->Next(&child_tuples, &child_rids, BUSTUB_BATCH_SIZE)) {
-    for (auto &tuple : child_tuples) {
-      TupleMeta meta{exec_ctx_->GetTransaction()->GetTransactionTempTs(), false};
-      auto rid_opt = table_info_->table_->InsertTuple(meta, tuple);
-      if (!rid_opt.has_value()) {
-        continue;
-      }
-      auto rid = rid_opt.value();
-      exec_ctx_->GetTransaction()->AppendWriteSet(table_info_->oid_, rid);
-
-      for (const auto &index_info : indexes) {
-        auto key = tuple.KeyFromTuple(table_info_->schema_, index_info->key_schema_, index_info->index_->GetKeyAttrs());
-        index_info->index_->InsertEntry(key, rid, exec_ctx_->GetTransaction());
-      }
-
-      inserted_count += 1;
+    for (const auto &tuple : child_tuples) {
+      InsertTupleMvcc(exec_ctx_->GetCatalog(), exec_ctx_->GetTransactionManager(), exec_ctx_->GetTransaction(),
+                      table_info_, tuple);
+      inserted_count++;
     }
   }
 

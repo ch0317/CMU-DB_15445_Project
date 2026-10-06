@@ -14,6 +14,7 @@
 #include "catalog/catalog.h"
 #include "common/config.h"
 #include "common/macros.h"
+#include "execution/execution_common.h"
 
 #include "execution/executors/insert_executor.h"
 
@@ -66,12 +67,13 @@ auto InsertExecutor::Next(std::vector<bustub::Tuple> *tuple_batch, std::vector<b
 
   while (child_executor_->Next(&child_tuples, &child_rids, BUSTUB_BATCH_SIZE)) {
     for (auto &tuple : child_tuples) {
-      TupleMeta meta{0, false};
+      TupleMeta meta{exec_ctx_->GetTransaction()->GetTransactionTempTs(), false};
       auto rid_opt = table_info_->table_->InsertTuple(meta, tuple);
       if (!rid_opt.has_value()) {
         continue;
       }
       auto rid = rid_opt.value();
+      exec_ctx_->GetTransaction()->AppendWriteSet(table_info_->oid_, rid);
 
       for (const auto &index_info : indexes) {
         auto key = tuple.KeyFromTuple(table_info_->schema_, index_info->key_schema_, index_info->index_->GetKeyAttrs());

@@ -79,7 +79,17 @@ auto TransactionManager::Commit(Transaction *txn) -> bool {
     }
   }
 
-  // TODO(P4): Implement the commit logic!
+  for (const auto &[oid, rids] : txn->GetWriteSets()) {
+    auto table = catalog_->GetTable(oid);
+    for (auto rid : rids) {
+      auto guard = table->table_->AcquireTablePageWriteLock(rid);
+      auto *page = guard.AsMut<TablePage>();
+      auto [meta, tuple] = table->table_->GetTupleWithLockAcquired(rid, page);
+      if (meta.ts_ == txn->GetTransactionTempTs()) {
+        table->table_->UpdateTupleInPlaceWithLockAcquired({commit_ts, meta.is_deleted_}, tuple, rid, page);
+      }
+    }
+  }
 
   std::unique_lock<std::shared_mutex> lck(txn_map_mutex_);
 
@@ -102,7 +112,27 @@ void TransactionManager::Abort(Transaction *txn) {
     throw Exception("txn not in running / tainted state");
   }
 
-  // TODO(P4): Implement the abort logic!
+  for (const auto &[oid, rids] : txn->GetWriteSets()) {
+    auto table = catalog_->GetTable(oid);
+    for (auto rid : rids) {
+      auto guard = table->table_->AcquireTablePageWriteLock(rid);
+      auto *page = guard.AsMut<TablePage>();
+      auto [meta, tuple] = table->table_->GetTupleWithLockAcquired(rid, page);
+      if (meta.ts_ != txn->GetTransactionTempTs()) {
+        continue;
+      }
+      auto link = GetUndoLink(rid);
+      if (link.has_value() && link->prev_txn_ == txn->GetTransactionId()) {
+        auto log = txn->GetUndoLog(link->prev_log_idx_);
+        auto restored = ReconstructTuple(&table->schema_, tuple, meta, {log});
+        table->table_->UpdateTupleInPlaceWithLockAcquired({log.ts_, log.is_deleted_}, restored.value_or(tuple), rid,
+                                                          page);
+        UpdateUndoLink(rid, log.prev_version_.IsValid() ? std::make_optional(log.prev_version_) : std::nullopt);
+      } else {
+        table->table_->UpdateTupleInPlaceWithLockAcquired({0, true}, tuple, rid, page);
+      }
+    }
+  }
 
   std::unique_lock<std::shared_mutex> lck(txn_map_mutex_);
   txn->state_ = TransactionState::ABORTED;
@@ -111,6 +141,39 @@ void TransactionManager::Abort(Transaction *txn) {
 
 /** @brief Stop-the-world garbage collection. Will be called only when all transactions are not accessing the table
  * heap. */
-void TransactionManager::GarbageCollection() { UNIMPLEMENTED("not implemented"); }
+void TransactionManager::GarbageCollection() {
+  auto watermark = GetWatermark();
+  std::unordered_set<txn_id_t> needed;
+  for (const auto &name : catalog_->GetTableNames()) {
+    auto table = catalog_->GetTable(name);
+    for (auto iter = table->table_->MakeIterator(); !iter.IsEnd(); ++iter) {
+      auto [meta, tuple, link] = GetTupleAndUndoLink(this, table->table_.get(), iter.GetRID());
+      if (meta.ts_ <= watermark) {
+        continue;
+      }
+      while (link.has_value() && link->IsValid()) {
+        auto log = GetUndoLogOptional(*link);
+        if (!log.has_value()) {
+          break;
+        }
+        needed.insert(link->prev_txn_);
+        if (log->ts_ <= watermark) {
+          break;
+        }
+        link = log->prev_version_;
+      }
+    }
+  }
+  std::unique_lock<std::shared_mutex> lock(txn_map_mutex_);
+  for (auto iter = txn_map_.begin(); iter != txn_map_.end();) {
+    auto state = iter->second->GetTransactionState();
+    if ((state == TransactionState::COMMITTED || state == TransactionState::ABORTED) &&
+        needed.count(iter->first) == 0) {
+      iter = txn_map_.erase(iter);
+    } else {
+      ++iter;
+    }
+  }
+}
 
 }  // namespace bustub

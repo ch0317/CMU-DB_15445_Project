@@ -13,6 +13,7 @@
 #include "execution/execution_common.h"
 
 #include "catalog/catalog.h"
+#include "common/exception.h"
 #include "common/macros.h"
 #include "concurrency/transaction_manager.h"
 #include "fmt/core.h"
@@ -23,7 +24,27 @@ namespace bustub {
 TupleComparator::TupleComparator(std::vector<OrderBy> order_bys) : order_bys_(std::move(order_bys)) {}
 
 /** TODO(P3): Implement the comparison method */
-auto TupleComparator::operator()(const SortEntry &entry_a, const SortEntry &entry_b) const -> bool { return false; }
+auto TupleComparator::operator()(const SortEntry &entry_a, const SortEntry &entry_b) const -> bool {
+  for (size_t i = 0; i < order_bys_.size(); i++) {
+    const auto &[direction, null_order, expr] = order_bys_[i];
+    const auto &a = entry_a.first[i];
+    const auto &b = entry_b.first[i];
+    if (a.IsNull() && b.IsNull()) {
+      continue;
+    }
+    if (a.IsNull() || b.IsNull()) {
+      bool nulls_first = null_order == OrderByNullType::NULLS_FIRST ||
+                         (null_order == OrderByNullType::DEFAULT && direction == OrderByType::DESC);
+      return a.IsNull() == nulls_first;
+    }
+    if (a.CompareEquals(b) == CmpBool::CmpTrue) {
+      continue;
+    }
+    return direction == OrderByType::DESC ? a.CompareGreaterThan(b) == CmpBool::CmpTrue
+                                          : a.CompareLessThan(b) == CmpBool::CmpTrue;
+  }
+  return false;
+}
 
 /**
  * Generate sort key for a tuple based on the order by expressions.
@@ -31,7 +52,11 @@ auto TupleComparator::operator()(const SortEntry &entry_a, const SortEntry &entr
  * TODO(P3): Implement this method.
  */
 auto GenerateSortKey(const Tuple &tuple, const std::vector<OrderBy> &order_bys, const Schema &schema) -> SortKey {
-  return {};
+  SortKey key;
+  for (const auto &[direction, null_order, expr] : order_bys) {
+    key.push_back(expr->Evaluate(&tuple, schema));
+  }
+  return key;
 }
 
 /**
@@ -121,7 +146,23 @@ auto CollectUndoLogs(RID rid, const TupleMeta &base_meta, const Tuple &base_tupl
  */
 auto GenerateNewUndoLog(const Schema *schema, const Tuple *base_tuple, const Tuple *target_tuple, timestamp_t ts,
                         UndoLink prev_version) -> UndoLog {
-  UNIMPLEMENTED("not implemented");
+  UndoLog log{base_tuple == nullptr, std::vector<bool>(schema->GetColumnCount(), false), Tuple::Empty(), ts,
+              prev_version};
+  std::vector<Value> values;
+  std::vector<Column> columns;
+  if (base_tuple != nullptr) {
+    for (uint32_t i = 0; i < schema->GetColumnCount(); i++) {
+      auto value = base_tuple->GetValue(schema, i);
+      if (target_tuple == nullptr || !value.CompareExactlyEquals(target_tuple->GetValue(schema, i))) {
+        log.modified_fields_[i] = true;
+        columns.push_back(schema->GetColumn(i));
+        values.push_back(value);
+      }
+    }
+  }
+  Schema undo_schema(columns);
+  log.tuple_ = Tuple(values, &undo_schema);
+  return log;
 }
 
 /**
@@ -136,7 +177,67 @@ auto GenerateNewUndoLog(const Schema *schema, const Tuple *base_tuple, const Tup
  */
 auto GenerateUpdatedUndoLog(const Schema *schema, const Tuple *base_tuple, const Tuple *target_tuple,
                             const UndoLog &log) -> UndoLog {
-  UNIMPLEMENTED("not implemented");
+  if (log.is_deleted_) {
+    return log;
+  }
+  auto updated = log;
+  std::vector<Column> old_columns;
+  for (uint32_t i = 0; i < schema->GetColumnCount(); i++) {
+    if (log.modified_fields_[i]) {
+      old_columns.push_back(schema->GetColumn(i));
+    }
+  }
+  Schema old_schema(old_columns);
+  std::vector<Column> columns;
+  std::vector<Value> values;
+  uint32_t old_index = 0;
+  for (uint32_t i = 0; i < schema->GetColumnCount(); i++) {
+    if (log.modified_fields_[i]) {
+      columns.push_back(schema->GetColumn(i));
+      values.push_back(log.tuple_.GetValue(&old_schema, old_index++));
+    } else if (base_tuple != nullptr &&
+               (target_tuple == nullptr ||
+                !base_tuple->GetValue(schema, i).CompareExactlyEquals(target_tuple->GetValue(schema, i)))) {
+      updated.modified_fields_[i] = true;
+      columns.push_back(schema->GetColumn(i));
+      values.push_back(base_tuple->GetValue(schema, i));
+    }
+  }
+  Schema undo_schema(columns);
+  updated.tuple_ = Tuple(values, &undo_schema);
+  return updated;
+}
+
+void ThrowWriteConflict(Transaction *txn) {
+  txn->SetTainted();
+  throw ExecutionException("MVCC write conflict or duplicate primary key");
+}
+
+void ModifyTuple(TransactionManager *txn_mgr, Transaction *txn, const TableInfo *table_info, RID rid,
+                 const Tuple *target, bool require_deleted) {
+  auto *heap = table_info->table_.get();
+  auto guard = heap->AcquireTablePageWriteLock(rid);
+  auto *page = guard.AsMut<TablePage>();
+  auto [meta, base] = heap->GetTupleWithLockAcquired(rid, page);
+  if ((meta.ts_ != txn->GetTransactionTempTs() && meta.ts_ > txn->GetReadTs()) ||
+      (require_deleted && !meta.is_deleted_)) {
+    ThrowWriteConflict(txn);
+  }
+  auto link = txn_mgr->GetUndoLink(rid);
+  auto *before = meta.is_deleted_ ? nullptr : &base;
+  if (meta.ts_ == txn->GetTransactionTempTs()) {
+    if (link.has_value() && link->prev_txn_ == txn->GetTransactionId()) {
+      auto log = txn->GetUndoLog(link->prev_log_idx_);
+      txn->ModifyUndoLog(link->prev_log_idx_, GenerateUpdatedUndoLog(&table_info->schema_, before, target, log));
+    }
+  } else {
+    link = txn->AppendUndoLog(
+        GenerateNewUndoLog(&table_info->schema_, before, target, meta.ts_, link.value_or(UndoLink{})));
+  }
+  heap->UpdateTupleInPlaceWithLockAcquired({txn->GetTransactionTempTs(), target == nullptr},
+                                           target == nullptr ? base : *target, rid, page);
+  txn_mgr->UpdateUndoLink(rid, link);
+  txn->AppendWriteSet(table_info->oid_, rid);
 }
 
 void TxnMgrDbg(const std::string &info, TransactionManager *txn_mgr, const TableInfo *table_info,

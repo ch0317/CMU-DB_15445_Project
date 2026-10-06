@@ -59,6 +59,11 @@ auto GenerateNewUndoLog(const Schema *schema, const Tuple *base_tuple, const Tup
 auto GenerateUpdatedUndoLog(const Schema *schema, const Tuple *base_tuple, const Tuple *target_tuple,
                             const UndoLog &log) -> UndoLog;
 
+void ThrowWriteConflict(Transaction *txn);
+
+void ModifyTuple(TransactionManager *txn_mgr, Transaction *txn, const TableInfo *table_info, RID rid,
+                 const Tuple *target, bool require_deleted = false);
+
 void TxnMgrDbg(const std::string &info, TransactionManager *txn_mgr, const TableInfo *table_info,
                TableHeap *table_heap);
 

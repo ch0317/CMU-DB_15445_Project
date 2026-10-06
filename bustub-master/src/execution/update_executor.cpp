@@ -14,6 +14,7 @@
 #include "catalog/catalog.h"
 #include "common/config.h"
 #include "common/macros.h"
+#include "execution/execution_common.h"
 
 #include "execution/executors/update_executor.h"
 
@@ -57,52 +58,22 @@ auto UpdateExecutor::Next(std::vector<bustub::Tuple> *tuple_batch, std::vector<b
     return false;
   }
 
-  auto *catalog = exec_ctx_->GetCatalog();
-  auto indexes = catalog->GetTableIndexes(table_info_->name_);
-
   int32_t updated_count = 0;
   std::vector<Tuple> child_tuples;
   std::vector<RID> child_rids;
-
+  std::vector<std::pair<RID, Tuple>> updates;
   while (child_executor_->Next(&child_tuples, &child_rids, BUSTUB_BATCH_SIZE)) {
-    for (size_t i = 0; i < child_tuples.size(); ++i) {
-      auto &old_tuple = child_tuples[i];
-      auto &old_rid = child_rids[i];
-
-      auto old_meta = table_info_->table_->GetTupleMeta(old_rid);
-      if (old_meta.is_deleted_) {
-        continue;
-      }
-
-      std::vector<Value> new_values;
-      new_values.reserve(plan_->target_expressions_.size());
+    for (size_t i = 0; i < child_tuples.size(); i++) {
+      std::vector<Value> values;
       for (const auto &expr : plan_->target_expressions_) {
-        new_values.push_back(expr->Evaluate(&old_tuple, child_executor_->GetOutputSchema()));
+        values.push_back(expr->Evaluate(&child_tuples[i], child_executor_->GetOutputSchema()));
       }
-      Tuple new_tuple(new_values, &table_info_->schema_);
-
-      table_info_->table_->UpdateTupleMeta(TupleMeta{0, true}, old_rid);
-      for (const auto &index_info : indexes) {
-        auto old_key =
-            old_tuple.KeyFromTuple(table_info_->schema_, index_info->key_schema_, index_info->index_->GetKeyAttrs());
-        index_info->index_->DeleteEntry(old_key, old_rid, exec_ctx_->GetTransaction());
-      }
-
-      TupleMeta new_meta{0, false};
-      auto rid_opt = table_info_->table_->InsertTuple(new_meta, new_tuple);
-      if (!rid_opt.has_value()) {
-        continue;
-      }
-      auto new_rid = rid_opt.value();
-
-      for (const auto &index_info : indexes) {
-        auto new_key =
-            new_tuple.KeyFromTuple(table_info_->schema_, index_info->key_schema_, index_info->index_->GetKeyAttrs());
-        index_info->index_->InsertEntry(new_key, new_rid, exec_ctx_->GetTransaction());
-      }
-
-      updated_count += 1;
+      updates.emplace_back(child_rids[i], Tuple(values, &table_info_->schema_));
     }
+  }
+  for (const auto &[rid, tuple] : updates) {
+    ModifyTuple(exec_ctx_->GetTransactionManager(), exec_ctx_->GetTransaction(), table_info_, rid, &tuple);
+    updated_count++;
   }
 
   tuple_batch->emplace_back(std::vector<Value>{Value(TypeId::INTEGER, updated_count)}, &GetOutputSchema());

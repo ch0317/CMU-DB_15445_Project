@@ -14,6 +14,7 @@
 #include "catalog/catalog.h"
 #include "common/config.h"
 #include "common/macros.h"
+#include "execution/execution_common.h"
 
 #include "execution/executors/delete_executor.h"
 
@@ -57,31 +58,13 @@ auto DeleteExecutor::Next(std::vector<bustub::Tuple> *tuple_batch, std::vector<b
     return false;
   }
 
-  auto *catalog = exec_ctx_->GetCatalog();
-  auto indexes = catalog->GetTableIndexes(table_info_->name_);
-
   int32_t deleted_count = 0;
   std::vector<Tuple> child_tuples;
   std::vector<RID> child_rids;
-
   while (child_executor_->Next(&child_tuples, &child_rids, BUSTUB_BATCH_SIZE)) {
-    for (size_t i = 0; i < child_tuples.size(); ++i) {
-      auto &tuple = child_tuples[i];
-      auto &rid = child_rids[i];
-
-      auto meta = table_info_->table_->GetTupleMeta(rid);
-      if (meta.is_deleted_) {
-        continue;
-      }
-
-      table_info_->table_->UpdateTupleMeta(TupleMeta{0, true}, rid);
-
-      for (const auto &index_info : indexes) {
-        auto key = tuple.KeyFromTuple(table_info_->schema_, index_info->key_schema_, index_info->index_->GetKeyAttrs());
-        index_info->index_->DeleteEntry(key, rid, exec_ctx_->GetTransaction());
-      }
-
-      deleted_count += 1;
+    for (auto rid : child_rids) {
+      ModifyTuple(exec_ctx_->GetTransactionManager(), exec_ctx_->GetTransaction(), table_info_, rid, nullptr);
+      deleted_count++;
     }
   }
 

@@ -122,6 +122,7 @@ class BPlusTree {
   auto TryOptimisticInsert(const KeyType &key,
                          const ValueType &value) -> bool;
 
+  auto TryOptimisticRemove(const KeyType &key) -> bool;
 
   auto FindLeafPageOptimistic(
       const KeyType &key,

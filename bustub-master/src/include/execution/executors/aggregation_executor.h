@@ -68,26 +68,36 @@ class SimpleAggregationHashTable {
    * @param input The input value
    */
   void CombineAggregateValues(AggregateValue *result, const AggregateValue &input) {
-    // HINT: for each aggregate column i, update `result->aggregates_[i]` using `input.aggregates_[i]`:
-    //  - CountStarAggregate: always add 1 (every combined row counts, regardless of NULLs).
-    //  - CountAggregate: only if the input value is not NULL, add 1 (start from 0 the first time).
-    //  - SumAggregate: only if not NULL, `result.Add(input)` (or just take `input` if result is
-    //    still NULL, i.e. this is the first non-NULL value seen).
-    //  - MinAggregate / MaxAggregate: same idea using `Value::Min` / `Value::Max`.
-    // Use `Value::IsNull()` to check for NULL, and be careful not to call Add/Min/Max on a NULL
-    // `result` value (take the input value directly the first time instead).
     for (uint32_t i = 0; i < agg_exprs_.size(); i++) {
+      auto &result_val = result->aggregates_[i];
+      const auto &input_val = input.aggregates_[i];
       switch (agg_types_[i]) {
         case AggregationType::CountStarAggregate:
+          result_val = result_val.Add(ValueFactory::GetIntegerValue(1));
+          break;
         case AggregationType::CountAggregate:
+          if (!input_val.IsNull()) {
+            result_val = result_val.IsNull() ? ValueFactory::GetIntegerValue(1)
+                                             : result_val.Add(ValueFactory::GetIntegerValue(1));
+          }
+          break;
         case AggregationType::SumAggregate:
+          if (!input_val.IsNull()) {
+            result_val = result_val.IsNull() ? input_val : result_val.Add(input_val);
+          }
+          break;
         case AggregationType::MinAggregate:
+          if (!input_val.IsNull()) {
+            result_val = result_val.IsNull() ? input_val : result_val.Min(input_val);
+          }
+          break;
         case AggregationType::MaxAggregate:
+          if (!input_val.IsNull()) {
+            result_val = result_val.IsNull() ? input_val : result_val.Max(input_val);
+          }
           break;
       }
     }
-
-    UNIMPLEMENTED("TODO(P3): Add implementation.");
   }
 
   /**
@@ -101,6 +111,12 @@ class SimpleAggregationHashTable {
     }
     CombineAggregateValues(&ht_[agg_key], agg_val);
   }
+
+  /**
+   * Inserts a group with no rows (used for a GROUP-BY-less aggregation over an empty input).
+   * @param agg_key the key to be inserted
+   */
+  void InsertInitial(const AggregateKey &agg_key) { ht_.insert({agg_key, GenerateInitialAggregateValue()}); }
 
   /**
    * Clear the hash table
@@ -197,19 +213,9 @@ class AggregationExecutor : public AbstractExecutor {
   std::unique_ptr<AbstractExecutor> child_executor_;
 
   /** Simple aggregation hash table */
-  // TODO(Student): Uncomment SimpleAggregationHashTable aht_;
+  SimpleAggregationHashTable aht_;
 
   /** Simple aggregation hash table iterator */
-  // TODO(Student): Uncomment SimpleAggregationHashTable::Iterator aht_iterator_;
-
-  // HINT: aggregation is a pipeline breaker (see the task doc). You'll likely want to construct
-  // `aht_` in the constructor's initializer list from `plan_->GetAggregates()` /
-  // `plan_->GetAggregateTypes()`, and do the whole "pull every tuple from `child_executor_`, call
-  // `aht_.InsertCombine(key, value)`" build phase once in `Init()` (not spread across `Next()`
-  // calls), then set `aht_iterator_ = aht_.Begin()`. `Next()` then just walks `aht_iterator_` to
-  // `aht_.End()`, batching output tuples (group-by columns followed by aggregate columns).
-  // NOTE: if there is no GROUP BY and the input is empty, you must still emit exactly one row
-  // (see the empty-table hint in the task doc) — `SimpleAggregationHashTable` may need a small
-  // helper for that since `ht_` is private.
+  SimpleAggregationHashTable::Iterator aht_iterator_;
 };
 }  // namespace bustub

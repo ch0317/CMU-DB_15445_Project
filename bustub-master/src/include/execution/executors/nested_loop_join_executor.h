@@ -13,8 +13,8 @@
 #pragma once
 
 #include <memory>
-#include <vector>
 #include <optional>
+#include <vector>
 
 #include "execution/executor_context.h"
 #include "execution/executors/abstract_executor.h"
@@ -44,20 +44,29 @@ class NestedLoopJoinExecutor : public AbstractExecutor {
   /** The NestedLoopJoin plan node to be executed. */
   const NestedLoopJoinPlanNode *plan_;
 
-  // HINT: you'll need `left_executor_` and `right_executor_` (moved in from the constructor args),
-  // plus enough state to implement the classic "for each outer tuple, rescan the whole inner table"
-  // algorithm across possibly-many Next() calls:
-  //  - batching state for the left (outer) child: buffered tuples + a cursor
-  //  - the "current" left tuple being probed, and whether a match has been found for it yet
-  //    (needed for LEFT joins: emit a NULL-padded row if no match was found after exhausting the
-  //    right side)
-  //  - batching state for the right (inner) child *for the current left tuple only* — the grader
-  //    checks that you call `right_executor_->Init()` again for (roughly) every left tuple, so do
-  //    NOT materialize the whole right table once in Init().
-  // A helper like `BuildJoinTuple(left_tuple, right_tuple_or_nullptr)` that concatenates left and
-  // right schema columns (using `ValueFactory::GetNullValueByType` for the missing side on a LEFT
-  // join non-match) will keep Next() readable.
+  std::unique_ptr<AbstractExecutor> left_executor_;
+  std::unique_ptr<AbstractExecutor> right_executor_;
 
+  /** The current batch pulled from the left (outer) child, and our position within it. */
+  std::vector<Tuple> left_tuples_;
+  std::vector<RID> left_rids_;
+  size_t left_idx_{0};
+
+  /** The current batch pulled from the right (inner) child for the current left tuple. */
+  std::vector<Tuple> right_tuples_;
+  std::vector<RID> right_rids_;
+  size_t right_idx_{0};
+
+  /** State for the left tuple currently being joined against the (re-scanned) right side. */
+  bool has_current_left_{false};
+  Tuple current_left_tuple_;
+  bool current_match_found_{false};
+
+  /** Pulls the next right tuple for the current left tuple, re-filling batches as needed. */
+  auto FetchNextRightTuple() -> std::optional<Tuple>;
+
+  /** Builds an output tuple from a left tuple and an optional right tuple (nullopt for LEFT join padding). */
+  auto BuildJoinTuple(const Tuple &left_tuple, const Tuple *right_tuple) -> Tuple;
 };
 
 }  // namespace bustub

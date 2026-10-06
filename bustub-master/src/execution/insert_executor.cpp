@@ -11,6 +11,8 @@
 //===----------------------------------------------------------------------===//
 
 #include <memory>
+#include "catalog/catalog.h"
+#include "common/config.h"
 #include "common/macros.h"
 
 #include "execution/executors/insert_executor.h"
@@ -25,18 +27,13 @@ namespace bustub {
  */
 InsertExecutor::InsertExecutor(ExecutorContext *exec_ctx, const InsertPlanNode *plan,
                                std::unique_ptr<AbstractExecutor> &&child_executor)
-    : AbstractExecutor(exec_ctx) ,
-    plan_(plan),
-    table_info_(exec_ctx->GetCatalog()->GetTable(plan_->GetTableOid()).get()),
-    child_executor_(std::move(child_executor)){
-  // HINT: initialize `plan_`, look up `table_info_` from the catalog using `plan->GetTableOid()`,
-  // and store `child_executor` (moved) as `child_executor_`.
-  
-}
+    : AbstractExecutor(exec_ctx),
+      plan_(plan),
+      table_info_(exec_ctx->GetCatalog()->GetTable(plan->GetTableOid()).get()),
+      child_executor_(std::move(child_executor)) {}
 
 /** Initialize the insert */
 void InsertExecutor::Init() {
-  // HINT: call `child_executor_->Init()` and reset the `done_` flag.
   child_executor_->Init();
   done_ = false;
 }
@@ -53,52 +50,39 @@ void InsertExecutor::Init() {
  */
 auto InsertExecutor::Next(std::vector<bustub::Tuple> *tuple_batch, std::vector<bustub::RID> *rid_batch,
                           size_t batch_size) -> bool {
-  // HINT:
-  // 1. If `done_` is already true, return false (this executor only ever produces one output row).
-  // 2. Pull tuples from `child_executor_->Next(...)` in a loop (batch_size can be BUSTUB_BATCH_SIZE)
-  //    until it returns false.
-  // 3. For each tuple, call `table_info_->table_->InsertTuple({/*ts=*/0, /*is_deleted=*/false}, tuple)`
-  //    to get a `RID`.
-  // 4. For every index on this table (`catalog->GetTableIndexes(table_info_->name_)`), build the index
-  //    key with `tuple.KeyFromTuple(table_info_->schema_, index_info->key_schema_, index_info->index_->GetKeyAttrs())`
-  //    and call `index_info->index_->InsertEntry(key, rid, exec_ctx_->GetTransaction())`.
-  // 5. Count how many rows were inserted, push ONE tuple of that INTEGER count into `tuple_batch`,
-  //    set `done_ = true`, and return true.
   tuple_batch->clear();
   rid_batch->clear();
 
-  if(done_){
+  if (done_) {
     return false;
   }
-
-  std::vector<bustub::Tuple> child_tuple;
-  std::vector<bustub::RID> rid_batch;
-  int insert_count = 0;
 
   auto *catalog = exec_ctx_->GetCatalog();
   auto indexes = catalog->GetTableIndexes(table_info_->name_);
 
-  while(child_executor_->Next(&child_tuple, &rid_batch, BUSTUB_BATCH_SIZE)) {
-    for(int i = 0; i < child_tuple.size(); i++){
+  int32_t inserted_count = 0;
+  std::vector<Tuple> child_tuples;
+  std::vector<RID> child_rids;
+
+  while (child_executor_->Next(&child_tuples, &child_rids, BUSTUB_BATCH_SIZE)) {
+    for (auto &tuple : child_tuples) {
       TupleMeta meta{0, false};
-      auto rid_opt = table_info_->table_->InsertTuple(meta, child_tuple[i]);
-      if(!rid_opt.has_value()){
+      auto rid_opt = table_info_->table_->InsertTuple(meta, tuple);
+      if (!rid_opt.has_value()) {
         continue;
       }
-
       auto rid = rid_opt.value();
 
-      for(const auto &index_info : indexes) {
-        auto key = child_tuple[i].KeyFromTuple(table_info_->schema_, index_info->key_schema_, index_info->index_->GetKeyAttrs());
+      for (const auto &index_info : indexes) {
+        auto key = tuple.KeyFromTuple(table_info_->schema_, index_info->key_schema_, index_info->index_->GetKeyAttrs());
         index_info->index_->InsertEntry(key, rid, exec_ctx_->GetTransaction());
       }
 
-      insert_count++;
-
+      inserted_count += 1;
     }
   }
 
-  tuple_batch->emplace_back(std::vector<Value>{Value(TypeId::INTEGER, insert_count)}, &GetOutputSchema());
+  tuple_batch->emplace_back(std::vector<Value>{Value(TypeId::INTEGER, inserted_count)}, &GetOutputSchema());
   done_ = true;
   return true;
 }

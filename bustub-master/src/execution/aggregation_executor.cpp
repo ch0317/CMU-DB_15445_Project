@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 #include <memory>
+#include "common/config.h"
 #include "common/macros.h"
 
 #include "execution/executors/aggregation_executor.h"
@@ -25,20 +26,32 @@ namespace bustub {
  */
 AggregationExecutor::AggregationExecutor(ExecutorContext *exec_ctx, const AggregationPlanNode *plan,
                                          std::unique_ptr<AbstractExecutor> &&child_executor)
-    : AbstractExecutor(exec_ctx) {
-  // HINT: store `plan_`, move in `child_executor_`, and construct `aht_` from
-  // `plan->GetAggregates()` / `plan->GetAggregateTypes()`. `aht_iterator_` needs a valid initial
-  // value too (e.g. `aht_.Begin()`, called after `aht_` is constructed).
-  UNIMPLEMENTED("TODO(P3): Add implementation.");
-}
+    : AbstractExecutor(exec_ctx),
+      plan_(plan),
+      child_executor_(std::move(child_executor)),
+      aht_(plan_->GetAggregates(), plan_->GetAggregateTypes()),
+      aht_iterator_(aht_.Begin()) {}
 
 /** Initialize the aggregation */
 void AggregationExecutor::Init() {
-  // HINT: this is the pipeline-breaker's build phase (see hint in aggregation_executor.h) —
-  // `child_executor_->Init()`, `aht_.Clear()`, then loop pulling batches via `child_executor_->Next()`
-  // and call `aht_.InsertCombine(MakeAggregateKey(&tuple), MakeAggregateValue(&tuple))` for every
-  // tuple. Handle the "no GROUP BY + empty input" edge case, then reset `aht_iterator_ = aht_.Begin()`.
-  UNIMPLEMENTED("TODO(P3): Add implementation.");
+  child_executor_->Init();
+  aht_.Clear();
+
+  std::vector<Tuple> child_tuples;
+  std::vector<RID> child_rids;
+  while (child_executor_->Next(&child_tuples, &child_rids, BUSTUB_BATCH_SIZE)) {
+    for (auto &tuple : child_tuples) {
+      aht_.InsertCombine(MakeAggregateKey(&tuple), MakeAggregateValue(&tuple));
+    }
+  }
+
+  // With no GROUP BY, an aggregation over an empty input must still emit one row
+  // (e.g. COUNT(*) = 0, other aggregates = NULL).
+  if (aht_.Begin() == aht_.End() && plan_->GetGroupBys().empty()) {
+    aht_.InsertInitial(AggregateKey{});
+  }
+
+  aht_iterator_ = aht_.Begin();
 }
 
 /**
@@ -51,12 +64,24 @@ void AggregationExecutor::Init() {
 
 auto AggregationExecutor::Next(std::vector<bustub::Tuple> *tuple_batch, std::vector<bustub::RID> *rid_batch,
                                size_t batch_size) -> bool {
-  // HINT: since the build phase already happened in Init(), Next() just walks `aht_iterator_`
-  // until `aht_.End()` (or `batch_size` is reached), building each output tuple from
-  // `aht_iterator_.Key().group_bys_` followed by `aht_iterator_.Val().aggregates_`, then
-  // `++aht_iterator_`. Remember to `tuple_batch->clear()` / `rid_batch->clear()` first, and push a
-  // dummy `RID{}` per output row (rid_batch is otherwise unused for this executor).
-  UNIMPLEMENTED("TODO(P3): Add implementation.");
+  tuple_batch->clear();
+  rid_batch->clear();
+
+  while (aht_iterator_ != aht_.End() && tuple_batch->size() < batch_size) {
+    std::vector<Value> values;
+    values.reserve(GetOutputSchema().GetColumnCount());
+    for (const auto &group_by_val : aht_iterator_.Key().group_bys_) {
+      values.push_back(group_by_val);
+    }
+    for (const auto &agg_val : aht_iterator_.Val().aggregates_) {
+      values.push_back(agg_val);
+    }
+    tuple_batch->emplace_back(values, &GetOutputSchema());
+    rid_batch->emplace_back(RID{});
+    ++aht_iterator_;
+  }
+
+  return !tuple_batch->empty();
 }
 
 /** Do not use or remove this function; otherwise, you will get zero points. */

@@ -20,11 +20,11 @@ namespace bustub {
  * @param exec_ctx The executor context
  * @param plan The sequential scan plan to be executed
  */
-SeqScanExecutor::SeqScanExecutor(ExecutorContext *exec_ctx, const SeqScanPlanNode *plan) 
-: AbstractExecutor(exec_ctx),plan_(plan) {}
+SeqScanExecutor::SeqScanExecutor(ExecutorContext *exec_ctx, const SeqScanPlanNode *plan)
+    : AbstractExecutor(exec_ctx), plan_(plan) {}
 
 /** Initialize the sequential scan */
-void SeqScanExecutor::Init() { 
+void SeqScanExecutor::Init() {
   table_info_ = exec_ctx_->GetCatalog()->GetTable(plan_->GetTableOid()).get();
   iterator_.emplace(table_info_->table_->MakeIterator());
 }
@@ -40,21 +40,21 @@ auto SeqScanExecutor::Next(std::vector<bustub::Tuple> *tuple_batch, std::vector<
                            size_t batch_size) -> bool {
   tuple_batch->clear();
   rid_batch->clear();
-  
-  while(!iterator_->IsEnd() && tuple_batch->size() < batch_size){
+
+  while (!iterator_->IsEnd() && tuple_batch->size() < batch_size) {
     auto [tuple_meta, tuple] = iterator_->GetTuple();
     auto rid = iterator_->GetRID();
 
     ++(*iterator_);
 
-    if(tuple_meta.is_deleted_){
+    if (tuple_meta.is_deleted_) {
       continue;
     }
 
-    if(plan_->filter_predicate_ != nullptr){
+    if (plan_->filter_predicate_ != nullptr) {
       auto value = plan_->filter_predicate_->Evaluate(&tuple, table_info_->schema_);
 
-      if(value.IsNull() || !value.GetAs<bool>()){
+      if (value.IsNull() || !value.GetAs<bool>()) {
         continue;
       }
     }
@@ -64,7 +64,6 @@ auto SeqScanExecutor::Next(std::vector<bustub::Tuple> *tuple_batch, std::vector<
   }
 
   return !tuple_batch->empty();
-
 }
 
 }  // namespace bustub

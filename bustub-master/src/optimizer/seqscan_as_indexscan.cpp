@@ -87,7 +87,7 @@ auto Optimizer::OptimizeSeqScanAsIndexScan(const bustub::AbstractPlanNodeRef &pl
   if (optimized_plan->GetType() == PlanType::SeqScan) {
     const auto &seq_scan_plan = dynamic_cast<const SeqScanPlanNode &>(*optimized_plan);
     if (seq_scan_plan.filter_predicate_ != nullptr) {
-      uint32_t col_idx = static_cast<uint32_t>(-1);
+      auto col_idx = static_cast<uint32_t>(-1);
       auto keys = CollectEqualityKeys(seq_scan_plan.filter_predicate_, &col_idx);
       if (keys.has_value()) {
         const auto table_info = catalog_.GetTable(seq_scan_plan.GetTableOid());

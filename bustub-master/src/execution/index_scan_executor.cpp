@@ -43,7 +43,10 @@ void IndexScanExecutor::Init() {
     }
     iterator_.reset();
   } else {
-    iterator_.reset(new BPlusTreeIndexIteratorForTwoIntegerColumn(tree_->GetBeginIterator()));
+    // IndexIterator has no copy/move constructor (it owns a page guard), so std::make_unique cannot
+    // forward the return value of GetBeginIterator() here; direct-initialization via `new` relies on
+    // guaranteed copy elision instead.
+    iterator_.reset(new BPlusTreeIndexIteratorForTwoIntegerColumn(tree_->GetBeginIterator()));  // NOLINT
   }
 }
 

@@ -25,7 +25,8 @@ namespace bustub {
  * @throws std::invalid_argument if width or depth are zero.
  */
 template <typename KeyType>
-CountMinSketch<KeyType>::CountMinSketch(uint32_t width, uint32_t depth) : width_(width), depth_(depth) {
+CountMinSketch<KeyType>::CountMinSketch(uint32_t width, uint32_t depth) : width_(width), depth_(depth) ,
+sketch_matrix_(depth_, vector<u_int32_t>(width_, 0)){
   /** @TODO(student) Implement this function! */
 
   /** @spring2026 PLEASE DO NOT MODIFY THE FOLLOWING */
@@ -37,13 +38,30 @@ CountMinSketch<KeyType>::CountMinSketch(uint32_t width, uint32_t depth) : width_
 }
 
 template <typename KeyType>
-CountMinSketch<KeyType>::CountMinSketch(CountMinSketch &&other) noexcept : width_(other.width_), depth_(other.depth_) {
-  /** @TODO(student) Implement this function! */
+CountMinSketch<KeyType>::CountMinSketch(CountMinSketch &&other) noexcept : width_(other.width_), depth_(other.depth_), sketch_matrix_(std::move(other.sketch_matrix_)) {
+  hash_functions_.reserve(depth_);
+  for (size_t i = 0; i < depth_; i++) {
+    hash_functions_.push_back(this->HashFunction(i));
+  }
 }
 
 template <typename KeyType>
 auto CountMinSketch<KeyType>::operator=(CountMinSketch &&other) noexcept -> CountMinSketch & {
-  /** @TODO(student) Implement this function! */
+  if(this == &other){
+    return *this;
+  }
+
+  width_ = other.width_;
+  depth_ = other.depth_;
+
+  sketch_matrix_(std::move(other.sketch_matrix_));
+
+  hash_functions_.clear();
+
+  for(size_t i = 0; i < depth_; i++){
+    hash_function_.push_back(this->HashFunction(i));
+  }
+  
   return *this;
 }
 

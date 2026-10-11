@@ -103,6 +103,9 @@ class CountMinSketch {
   }
 
   /** @todo (student) can add their data structures that support count-min sketch operations */
+  /** Count-min sketch matrix storing the frequency counts */
+  std::vector<std::vector<uint32_t>> sketch_matrix_; // 2D vector representing the count-min sketch matrix
+
 };
 
 }  // namespace bustub

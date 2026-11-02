@@ -12,13 +12,13 @@
 
 #pragma once
 
+#include <atomic>
 #include <cstdint>
 #include <functional>
-#include <utility>
-#include <vector>
 #include <mutex>
 #include <shared_mutex>
-#include <atomic>
+#include <utility>
+#include <vector>
 #include "common/util/hash_util.h"
 
 namespace bustub {
@@ -106,8 +106,7 @@ class CountMinSketch {
 
   /** @todo (student) can add their data structures that support count-min sketch operations */
   /** Count-min sketch matrix storing the frequency counts */
-  std::vector<std::vector<std::atomic<uint32_t>>> sketch_matrix_; // 2D vector representing the count-min sketch matrix
- 
+  std::vector<std::vector<std::atomic<uint32_t>>> sketch_matrix_;  // 2D vector representing the count-min sketch matrix
 };
 
 }  // namespace bustub

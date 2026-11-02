@@ -14,6 +14,7 @@
 
 #include <stdexcept>
 #include <string>
+#include <queue>
 
 namespace bustub {
 
@@ -25,9 +26,21 @@ namespace bustub {
  * @throws std::invalid_argument if width or depth are zero.
  */
 template <typename KeyType>
-CountMinSketch<KeyType>::CountMinSketch(uint32_t width, uint32_t depth) : width_(width), depth_(depth) ,
-sketch_matrix_(depth_, std::vector<u_int32_t>(width_, 0)){
+CountMinSketch<KeyType>::CountMinSketch(uint32_t width, uint32_t depth) : width_(width), depth_(depth){
   /** @TODO(student) Implement this function! */
+  if(width_ == 0 || depth_ == 0){
+    throw std::invalid_argument("CountMinSketch width and depth must be greater than zero.");
+  }
+
+  sketch_matrix_.resize(depth_);
+
+  for(auto &row : sketch_matrix_){
+    row = std::vector<std::atomic<uint32_t>>(width_);
+
+    for (auto &counter : row) {
+      counter.store(0, std::memory_order_relaxed);
+    }
+  }
 
   /** @spring2026 PLEASE DO NOT MODIFY THE FOLLOWING */
   // Initialize seeded hash functions
@@ -68,7 +81,7 @@ auto CountMinSketch<KeyType>::operator=(CountMinSketch &&other) noexcept -> Coun
 template <typename KeyType>
 void CountMinSketch<KeyType>::Insert(const KeyType &item) {
   for(size_t i = 0; i < depth_; i++){
-    sketch_matrix_[i][hash_functions_[i](item) % width_]++;
+    sketch_matrix_[i][hash_functions_[i](item) % width_].fetch_add(1, std::memory_order_relaxed);
   }
 }
 
@@ -80,7 +93,12 @@ void CountMinSketch<KeyType>::Merge(const CountMinSketch<KeyType> &other) {
   
   for(size_t i = 0; i < depth_; i++){
     for(size_t j = 0; j < width_; j++){
-      sketch_matrix_[i][j] += other.sketch_matrix_[i][j];
+       const uint32_t a =
+          sketch_matrix_[i][j].load(std::memory_order_relaxed);
+      const uint32_t b =
+          other.sketch_matrix_[i][j].load(std::memory_order_relaxed);
+
+      sketch_matrix_[i][j].store(a + b, std::memory_order_relaxed);
     }
   }
 }
@@ -89,7 +107,7 @@ template <typename KeyType>
 auto CountMinSketch<KeyType>::Count(const KeyType &item) const -> uint32_t {
   uint32_t min_count = std::numeric_limits<uint32_t>::max();
   for(size_t i = 0; i < depth_;i++){
-    min_count = std::min(min_count, sketch_matrix_[i][hash_functions_[i](item) % width_]);
+    min_count = std::min(min_count, sketch_matrix_[i][hash_functions_[i](item) % width_].load(std::memory_order_relaxed));
   }
 
   return min_count;
@@ -97,14 +115,53 @@ auto CountMinSketch<KeyType>::Count(const KeyType &item) const -> uint32_t {
 
 template <typename KeyType>
 void CountMinSketch<KeyType>::Clear() {
-  /** @TODO(student) Implement this function! */
+    for(size_t i = 0; i < depth_; i++){
+    for(size_t j = 0; j < width_; j++){
+      sketch_matrix_[i][j].store(0, std::memory_order_relaxed);
+    }
+  }
 }
 
 template <typename KeyType>
 auto CountMinSketch<KeyType>::TopK(uint16_t k, const std::vector<KeyType> &candidates)
     -> std::vector<std::pair<KeyType, uint32_t>> {
-  /** @TODO(student) Implement this function! */
-  return {};
+  if(k == 0){
+    return {};
+  }
+
+  using Entry = std::pair<KeyType, uint32_t>;
+  std::vector<Entry> res;
+
+  auto compare = [](Entry a, Entry b){
+    if(a.second > b.second){
+      return true;
+    }
+    return false;
+  };
+
+  std::priority_queue<Entry, std::vector<Entry>, decltype(compare)> heap(compare);
+
+  for(const auto & candidate : candidates){
+    Entry temp(candidate, Count(candidate));
+    if(heap.size() < k){
+      heap.push(temp);
+    }else{
+      if(!compare(heap.top(), temp)){
+        heap.pop();
+        heap.push(temp);
+      }
+    }
+  }
+
+  res.reserve(heap.size());
+  while(!heap.empty()){
+    res.push_back(heap.top());
+    heap.pop();
+  }
+
+  std::reverse(res.begin(), res.end());
+  return res;
+  
 }
 
 // Explicit instantiations for all types used in tests

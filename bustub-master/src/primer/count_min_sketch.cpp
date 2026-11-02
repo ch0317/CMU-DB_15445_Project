@@ -26,7 +26,7 @@ namespace bustub {
  */
 template <typename KeyType>
 CountMinSketch<KeyType>::CountMinSketch(uint32_t width, uint32_t depth) : width_(width), depth_(depth) ,
-sketch_matrix_(depth_, vector<u_int32_t>(width_, 0)){
+sketch_matrix_(depth_, std::vector<u_int32_t>(width_, 0)){
   /** @TODO(student) Implement this function! */
 
   /** @spring2026 PLEASE DO NOT MODIFY THE FOLLOWING */
@@ -54,12 +54,12 @@ auto CountMinSketch<KeyType>::operator=(CountMinSketch &&other) noexcept -> Coun
   width_ = other.width_;
   depth_ = other.depth_;
 
-  sketch_matrix_(std::move(other.sketch_matrix_));
+  sketch_matrix_ = std::move(other.sketch_matrix_);
 
   hash_functions_.clear();
 
   for(size_t i = 0; i < depth_; i++){
-    hash_function_.push_back(this->HashFunction(i));
+    hash_functions_.push_back(this->HashFunction(i));
   }
   
   return *this;
@@ -67,7 +67,9 @@ auto CountMinSketch<KeyType>::operator=(CountMinSketch &&other) noexcept -> Coun
 
 template <typename KeyType>
 void CountMinSketch<KeyType>::Insert(const KeyType &item) {
-  /** @TODO(student) Implement this function! */
+  for(size_t i = 0; i < depth_; i++){
+    sketch_matrix_[i][hash_functions_[i](item) % width_]++;
+  }
 }
 
 template <typename KeyType>
@@ -75,12 +77,22 @@ void CountMinSketch<KeyType>::Merge(const CountMinSketch<KeyType> &other) {
   if (width_ != other.width_ || depth_ != other.depth_) {
     throw std::invalid_argument("Incompatible CountMinSketch dimensions for merge.");
   }
-  /** @TODO(student) Implement this function! */
+  
+  for(size_t i = 0; i < depth_; i++){
+    for(size_t j = 0; j < width_; j++){
+      sketch_matrix_[i][j] += other.sketch_matrix_[i][j];
+    }
+  }
 }
 
 template <typename KeyType>
 auto CountMinSketch<KeyType>::Count(const KeyType &item) const -> uint32_t {
-  return 0;
+  uint32_t min_count = std::numeric_limits<uint32_t>::max();
+  for(size_t i = 0; i < depth_;i++){
+    min_count = std::min(min_count, sketch_matrix_[i][hash_functions_[i](item) % width_]);
+  }
+
+  return min_count;
 }
 
 template <typename KeyType>

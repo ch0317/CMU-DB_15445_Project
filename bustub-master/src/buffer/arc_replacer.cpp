@@ -75,7 +75,14 @@ auto ArcReplacer::Evict() -> std::optional<frame_id_t> { return std::nullopt; }
  * @param access_type type of access that was received. This parameter is only needed for
  * leaderboard tests.
  */
-void ArcReplacer::RecordAccess(frame_id_t frame_id, page_id_t page_id, [[maybe_unused]] AccessType access_type) {}
+void ArcReplacer::RecordAccess(frame_id_t frame_id, page_id_t page_id, AccessType access_type) {
+ /*1. Access hits mru_ or mfu_ */
+
+ /* 2/3. Access hits mru_ghost_ / mfu_ghost_ */
+
+ /* 4. Access misses all the lists */
+
+}
 
 /**
  * TODO(P1): Add implementation
@@ -94,7 +101,29 @@ void ArcReplacer::RecordAccess(frame_id_t frame_id, page_id_t page_id, [[maybe_u
  * @param frame_id id of frame whose 'evictable' status will be modified
  * @param set_evictable whether the given frame is evictable or not
  */
-void ArcReplacer::SetEvictable(frame_id_t frame_id, bool set_evictable) {}
+void ArcReplacer::SetEvictable(frame_id_t frame_id, bool set_evictable) {
+    if(frame_id < 0 || frame_id >= replacer_size_){
+        throw std::invalid_argument("invalid frame_id");
+    }
+
+    std::lock_guard<std::mutex> lock(latch_);
+    auto it = alive_map_.find(frame_id);
+    if(it == alive_map_.end()){
+        return;
+    }else{
+        auto &evictable = it->second->evictable_;
+        if(evictable == set_evictable){
+            return;
+        }
+
+        if(set_evictable){
+            curr_size_--;
+        }else{
+            curr_size_++;
+        }
+        evictable = set_evictable;
+    }
+}
 
 /**
  * TODO(P1): Add implementation
@@ -121,6 +150,9 @@ void ArcReplacer::Remove(frame_id_t frame_id) {}
  *
  * @return size_t
  */
-auto ArcReplacer::Size() -> size_t { return 0; }
+auto ArcReplacer::Size() -> size_t { 
+    std::lock_guard<std::mutex> lock(latch_);
+    return curr_size_; 
+}
 
 }  // namespace bustub
